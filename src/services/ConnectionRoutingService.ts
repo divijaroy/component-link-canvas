@@ -1,358 +1,293 @@
-import { Position, ComponentGroup } from '../types/ComponentTypes';
-
-export interface RoutePoint {
-  x: number;
-  y: number;
-  type: 'start' | 'end' | 'waypoint';
-}
-
-export interface ConnectionRoute {
-  points: RoutePoint[];
-  path: string; // SVG path string
-  distance: number;
-}
-
-export interface ComponentBox {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+import { ComponentNode, ConnectionLine, Position } from '../types/ComponentTypes';
+import { ConnectivityLayoutService } from './ConnectivityLayoutService';
 
 export class ConnectionRoutingService {
-  private componentBoxes: ComponentBox[] = [];
-  private padding = 30; // Padding around components for routing
+  private static readonly PADDING = 20;
+  private static readonly GRID_SIZE = 10;
 
-  setComponentGroups(groups: ComponentGroup[]) {
-    // Extract individual component boxes from groups
-    this.componentBoxes = [];
+  /**
+   * Calculate routed path for a connection
+   */
+  static calculateConnectionPath(
+    source: ComponentNode,
+    target: ComponentNode,
+    allNodes: ComponentNode[]
+  ): Position[] {
+    console.log(`Calculating path from ${source.id} to ${target.id}`);
     
-    groups.forEach(group => {
-      // Add main component box
-      this.componentBoxes.push({
-        id: group.mainComponent.id,
-        x: group.mainComponent.position.x - 80, // Card width is ~160px
-        y: group.mainComponent.position.y - 40, // Card height is ~80px
-        width: 160,
-        height: 80
-      });
+    const sourceBox = ConnectivityLayoutService.getComponentBoundingBox(source);
+    const targetBox = ConnectivityLayoutService.getComponentBoundingBox(target);
+    
+    // Calculate nearest border points
+    const startPoint = this.getNearestBorderPoint(sourceBox, targetBox);
+    const endPoint = this.getNearestBorderPoint(targetBox, sourceBox);
+    
+    console.log(`Start point: ${startPoint.x}, ${startPoint.y}`);
+    console.log(`End point: ${endPoint.x}, ${endPoint.y}`);
+    
+    // Get all bounding boxes for obstacle avoidance
+    const allBoundingBoxes = ConnectivityLayoutService.getAllBoundingBoxes(allNodes);
+    
+    // Calculate path avoiding obstacles
+    const path = this.findPath(startPoint, endPoint, allBoundingBoxes, source.id, target.id);
+    
+    console.log(`Calculated path with ${path.length} points`);
+    return path;
+  }
+
+  /**
+   * Get the nearest border point of a component to another component
+   */
+  private static getNearestBorderPoint(
+    sourceBox: { x: number; y: number; width: number; height: number },
+    targetBox: { x: number; y: number; width: number; height: number }
+  ): Position {
+    const sourceCenter = {
+      x: sourceBox.x + sourceBox.width / 2,
+      y: sourceBox.y + sourceBox.height / 2
+    };
+    
+    const targetCenter = {
+      x: targetBox.x + targetBox.width / 2,
+      y: targetBox.y + targetBox.height / 2
+    };
+    
+    // Calculate direction from source to target
+    const dx = targetCenter.x - sourceCenter.x;
+    const dy = targetCenter.y - sourceCenter.y;
+    
+    // Normalize direction
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const dirX = dx / length;
+    const dirY = dy / length;
+    
+    // Find intersection with source box border
+    const intersections = this.getBoxIntersections(sourceBox, sourceCenter, dirX, dirY);
+    
+    // Return the intersection point closest to the target
+    return intersections.reduce((closest, point) => {
+      const distToTarget = Math.sqrt(
+        Math.pow(point.x - targetCenter.x, 2) + Math.pow(point.y - targetCenter.y, 2)
+      );
+      const distClosestToTarget = Math.sqrt(
+        Math.pow(closest.x - targetCenter.x, 2) + Math.pow(closest.y - targetCenter.y, 2)
+      );
+      return distToTarget < distClosestToTarget ? point : closest;
+    });
+  }
+
+  /**
+   * Get intersection points of a ray with a box
+   */
+  private static getBoxIntersections(
+    box: { x: number; y: number; width: number; height: number },
+    center: Position,
+    dirX: number,
+    dirY: number
+  ): Position[] {
+    const intersections: Position[] = [];
+    
+    // Check intersection with each edge
+    const edges = [
+      // Top edge
+      { x1: box.x, y1: box.y, x2: box.x + box.width, y2: box.y },
+      // Right edge
+      { x1: box.x + box.width, y1: box.y, x2: box.x + box.width, y2: box.y + box.height },
+      // Bottom edge
+      { x1: box.x, y1: box.y + box.height, x2: box.x + box.width, y2: box.y + box.height },
+      // Left edge
+      { x1: box.x, y1: box.y, x2: box.x, y2: box.y + box.height }
+    ];
+    
+    edges.forEach(edge => {
+      const intersection = this.lineIntersection(
+        center.x, center.y, center.x + dirX * 1000, center.y + dirY * 1000,
+        edge.x1, edge.y1, edge.x2, edge.y2
+      );
+      
+      if (intersection) {
+        intersections.push(intersection);
+      }
     });
     
-    console.log('Routing service component boxes:', this.componentBoxes);
+    return intersections;
   }
 
   /**
-   * Calculate a route between two points that avoids component boxes
+   * Find intersection of two line segments
    */
-  calculateRoute(start: Position, end: Position): ConnectionRoute {
-    // First, try a direct curved path
-    const directRoute = this.calculateDirectRoute(start, end);
+  private static lineIntersection(
+    x1: number, y1: number, x2: number, y2: number,
+    x3: number, y3: number, x4: number, y4: number
+  ): Position | null {
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if (Math.abs(denom) < 1e-10) return null;
     
-    // Check if direct route intersects with any component
-    if (!this.routeIntersectsComponent(directRoute.points)) {
-      return directRoute;
-    }
-
-    // If direct route intersects, find a path around obstacles
-    return this.calculateDetourRoute(start, end);
-  }
-
-  /**
-   * Calculate a direct curved route
-   */
-  private calculateDirectRoute(start: Position, end: Position): ConnectionRoute {
-    const points: RoutePoint[] = [
-      { x: start.x, y: start.y, type: 'start' },
-      { x: end.x, y: end.y, type: 'end' }
-    ];
-
-    // Add control points for smooth curve
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
     
-    // Create smooth curve with control points
-    const curveIntensity = Math.min(distance * 0.2, 80);
-    
-    // Calculate perpendicular direction for curve
-    const perpX = -dy / distance;
-    const perpY = dx / distance;
-    
-    // Add control points for smooth curve
-    const control1: RoutePoint = {
-      x: start.x + dx * 0.25 + perpX * curveIntensity,
-      y: start.y + dy * 0.25 + perpY * curveIntensity,
-      type: 'waypoint'
-    };
-    
-    const control2: RoutePoint = {
-      x: start.x + dx * 0.75 - perpX * curveIntensity,
-      y: start.y + dy * 0.75 - perpY * curveIntensity,
-      type: 'waypoint'
-    };
-
-    points.splice(1, 0, control1, control2);
-
-    return {
-      points,
-      path: this.generateSVGPath(points),
-      distance: this.calculateDistance(start, end)
-    };
-  }
-
-  /**
-   * Calculate a detour route around obstacles
-   */
-  private calculateDetourRoute(start: Position, end: Position): ConnectionRoute {
-    const obstacles = this.findObstaclesBetween(start, end);
-    
-    if (obstacles.length === 0) {
-      return this.calculateDirectRoute(start, end);
-    }
-
-    // Find waypoints to navigate around obstacles
-    const waypoints = this.findWaypointsAroundObstacles(start, end, obstacles);
-    
-    const points: RoutePoint[] = [
-      { x: start.x, y: start.y, type: 'start' },
-      ...waypoints.map(wp => ({ x: wp.x, y: wp.y, type: 'waypoint' as const })),
-      { x: end.x, y: end.y, type: 'end' }
-    ];
-
-    return {
-      points,
-      path: this.generateSVGPath(points),
-      distance: this.calculatePathDistance(points)
-    };
-  }
-
-  /**
-   * Find obstacles between two points
-   */
-  private findObstaclesBetween(start: Position, end: Position): ComponentBox[] {
-    const obstacles: ComponentBox[] = [];
-    
-    for (const box of this.componentBoxes) {
-      if (this.lineIntersectsBoundingBox(start, end, box)) {
-        obstacles.push(box);
-      }
-    }
-
-    return obstacles;
-  }
-
-  /**
-   * Find waypoints to navigate around obstacles
-   */
-  private findWaypointsAroundObstacles(start: Position, end: Position, obstacles: ComponentBox[]): Position[] {
-    const waypoints: Position[] = [];
-    let currentPos = { ...start };
-
-    // Sort obstacles by distance from start
-    obstacles.sort((a, b) => {
-      const distA = this.calculateDistance(start, { x: a.x + a.width / 2, y: a.y + a.height / 2 });
-      const distB = this.calculateDistance(start, { x: b.x + b.width / 2, y: b.y + b.height / 2 });
-      return distA - distB;
-    });
-
-    // Generate waypoints to avoid each obstacle
-    for (const obstacle of obstacles) {
-      const waypoint = this.findWaypointAroundObstacle(currentPos, obstacle, end);
-      if (waypoint) {
-        waypoints.push(waypoint);
-        currentPos = waypoint;
-      }
-    }
-
-    return waypoints;
-  }
-
-  /**
-   * Find a waypoint to navigate around a specific obstacle
-   */
-  private findWaypointAroundObstacle(from: Position, obstacle: ComponentBox, to: Position): Position | null {
-    const centerX = obstacle.x + obstacle.width / 2;
-    const centerY = obstacle.y + obstacle.height / 2;
-    
-    // Calculate directions to try (8 directions around the obstacle)
-    const directions = [
-      { x: 0, y: -1 },   // up
-      { x: 1, y: -1 },   // up-right
-      { x: 1, y: 0 },    // right
-      { x: 1, y: 1 },    // down-right
-      { x: 0, y: 1 },    // down
-      { x: -1, y: 1 },   // down-left
-      { x: -1, y: 0 },   // left
-      { x: -1, y: -1 }   // up-left
-    ];
-
-    const obstacleRadius = Math.max(obstacle.width, obstacle.height) / 2 + this.padding;
-
-    for (const direction of directions) {
-      const waypoint = {
-        x: centerX + direction.x * obstacleRadius,
-        y: centerY + direction.y * obstacleRadius
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+      return {
+        x: x1 + t * (x2 - x1),
+        y: y1 + t * (y2 - y1)
       };
-
-      // Check if this waypoint is valid (not inside another obstacle)
-      if (!this.isPointInAnyObstacle(waypoint)) {
-        return waypoint;
-      }
     }
-
+    
     return null;
   }
 
   /**
-   * Check if a line intersects with a bounding box
+   * Find path from start to end avoiding obstacles
    */
-  private lineIntersectsBoundingBox(start: Position, end: Position, boundingBox: ComponentBox): boolean {
-    const { x, y, width, height } = boundingBox;
+  private static findPath(
+    start: Position,
+    end: Position,
+    boundingBoxes: Map<string, { x: number; y: number; width: number; height: number }>,
+    sourceId: string,
+    targetId: string
+  ): Position[] {
+    // Simple direct path with obstacle avoidance
+    const path: Position[] = [start];
     
-    // Expand bounding box with padding
-    const expandedBox = {
-      x: x - this.padding,
-      y: y - this.padding,
-      width: width + this.padding * 2,
-      height: height + this.padding * 2
-    };
-
-    // Check if line intersects with expanded bounding box
-    return this.lineIntersectsRect(start, end, expandedBox);
-  }
-
-  /**
-   * Check if a line intersects with a rectangle
-   */
-  private lineIntersectsRect(start: Position, end: Position, rect: { x: number; y: number; width: number; height: number }): boolean {
-    const { x, y, width, height } = rect;
+    // Check if direct line intersects any obstacles
+    const obstacles = Array.from(boundingBoxes.entries())
+      .filter(([id]) => id !== sourceId && id !== targetId)
+      .map(([, box]) => box);
     
-    // Check if either endpoint is inside the rectangle
-    if (this.isPointInRect(start, rect) || this.isPointInRect(end, rect)) {
-      return true;
+    if (!this.lineIntersectsObstacles(start, end, obstacles)) {
+      // Direct path is possible
+      path.push(end);
+      return path;
     }
     
-    // Check intersection with each edge of the rectangle
-    const edges = [
-      // Top edge
-      { x1: x, y1: y, x2: x + width, y2: y },
-      // Right edge
-      { x1: x + width, y1: y, x2: x + width, y2: y + height },
-      // Bottom edge
-      { x1: x, y1: y + height, x2: x + width, y2: y + height },
-      // Left edge
-      { x1: x, y1: y, x2: x, y2: y + height }
-    ];
-    
-    for (const edge of edges) {
-      if (this.linesIntersect(start.x, start.y, end.x, end.y, edge.x1, edge.y1, edge.x2, edge.y2)) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
-
-  /**
-   * Check if two line segments intersect
-   */
-  private linesIntersect(
-    x1: number, y1: number, x2: number, y2: number,
-    x3: number, y3: number, x4: number, y4: number
-  ): boolean {
-    const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
-    if (denom === 0) return false; // Lines are parallel
-    
-    const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
-    const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
-    
-    return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
-  }
-
-  /**
-   * Check if a point is inside a rectangle
-   */
-  private isPointInRect(point: Position, rect: { x: number; y: number; width: number; height: number }): boolean {
-    return point.x >= rect.x && point.x <= rect.x + rect.width &&
-           point.y >= rect.y && point.y <= rect.y + rect.height;
-  }
-
-  /**
-   * Check if a point is inside any obstacle
-   */
-  private isPointInAnyObstacle(point: Position): boolean {
-    for (const box of this.componentBoxes) {
-      if (this.isPointInRect(point, box)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Check if a route intersects with any component
-   */
-  private routeIntersectsComponent(points: RoutePoint[]): boolean {
-    for (let i = 0; i < points.length - 1; i++) {
-      const start = points[i];
-      const end = points[i + 1];
-      
-      for (const box of this.componentBoxes) {
-        if (this.lineIntersectsBoundingBox(start, end, box)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Generate SVG path string from route points
-   */
-  private generateSVGPath(points: RoutePoint[]): string {
-    if (points.length < 2) return '';
-    
-    let path = `M ${points[0].x} ${points[0].y}`;
-    
-    if (points.length === 2) {
-      // Simple line
-      path += ` L ${points[1].x} ${points[1].y}`;
-    } else if (points.length === 4) {
-      // Smooth curve with control points
-      path += ` Q ${points[1].x} ${points[1].y} ${points[2].x} ${points[2].y}`;
-      path += ` T ${points[3].x} ${points[3].y}`;
-    } else {
-      // Multiple waypoints - use smooth curve
-      for (let i = 1; i < points.length; i++) {
-        if (i === 1) {
-          path += ` Q ${points[i].x} ${points[i].y} ${points[i + 1].x} ${points[i + 1].y}`;
-        } else if (i < points.length - 1) {
-          path += ` T ${points[i + 1].x} ${points[i + 1].y}`;
-        }
-      }
-    }
+    // Need to route around obstacles
+    const routedPath = this.routeAroundObstacles(start, end, obstacles);
+    path.push(...routedPath);
     
     return path;
   }
 
   /**
-   * Calculate distance between two points
+   * Check if a line intersects any obstacles
    */
-  private calculateDistance(a: Position, b: Position): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    return Math.sqrt(dx * dx + dy * dy);
+  private static lineIntersectsObstacles(
+    start: Position,
+    end: Position,
+    obstacles: { x: number; y: number; width: number; height: number }[]
+  ): boolean {
+    return obstacles.some(obstacle => {
+      // Check if line intersects with obstacle box
+      const edges = [
+        { x1: obstacle.x, y1: obstacle.y, x2: obstacle.x + obstacle.width, y2: obstacle.y },
+        { x1: obstacle.x + obstacle.width, y1: obstacle.y, x2: obstacle.x + obstacle.width, y2: obstacle.y + obstacle.height },
+        { x1: obstacle.x, y1: obstacle.y + obstacle.height, x2: obstacle.x + obstacle.width, y2: obstacle.y + obstacle.height },
+        { x1: obstacle.x, y1: obstacle.y, x2: obstacle.x, y2: obstacle.y + obstacle.height }
+      ];
+      
+      return edges.some(edge => 
+        this.lineIntersection(start.x, start.y, end.x, end.y, edge.x1, edge.y1, edge.x2, edge.y2) !== null
+      );
+    });
   }
 
   /**
-   * Calculate total distance of a path
+   * Route around obstacles using a simple algorithm
    */
-  private calculatePathDistance(points: RoutePoint[]): number {
-    let totalDistance = 0;
-    for (let i = 0; i < points.length - 1; i++) {
-      totalDistance += this.calculateDistance(points[i], points[i + 1]);
+  private static routeAroundObstacles(
+    start: Position,
+    end: Position,
+    obstacles: { x: number; y: number; width: number; height: number }[]
+  ): Position[] {
+    const path: Position[] = [];
+    
+    // Find the closest obstacle to the direct path
+    let closestObstacle: { x: number; y: number; width: number; height: number } | null = null;
+    let minDistance = Infinity;
+    
+    obstacles.forEach(obstacle => {
+      const obstacleCenter = {
+        x: obstacle.x + obstacle.width / 2,
+        y: obstacle.y + obstacle.height / 2
+      };
+      
+      const distance = this.pointToLineDistance(start, end, obstacleCenter);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestObstacle = obstacle;
+      }
+    });
+    
+    if (!closestObstacle) {
+      return [end];
     }
-    return totalDistance;
+    
+    // Route around the closest obstacle
+    const obstacleCenter = {
+      x: closestObstacle.x + closestObstacle.width / 2,
+      y: closestObstacle.y + closestObstacle.height / 2
+    };
+    
+    // Calculate offset direction
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const perpX = -dy;
+    const perpY = dx;
+    const perpLength = Math.sqrt(perpX * perpX + perpY * perpY);
+    
+    if (perpLength > 0) {
+      const offsetDistance = Math.max(closestObstacle.width, closestObstacle.height) / 2 + this.PADDING;
+      const offsetX = (perpX / perpLength) * offsetDistance;
+      const offsetY = (perpY / perpLength) * offsetDistance;
+      
+      // Add waypoint around the obstacle
+      const waypoint = {
+        x: obstacleCenter.x + offsetX,
+        y: obstacleCenter.y + offsetY
+      };
+      
+      path.push(waypoint);
+    }
+    
+    path.push(end);
+    return path;
+  }
+
+  /**
+   * Calculate distance from point to line
+   */
+  private static pointToLineDistance(
+    lineStart: Position,
+    lineEnd: Position,
+    point: Position
+  ): number {
+    const A = point.x - lineStart.x;
+    const B = point.y - lineStart.y;
+    const C = lineEnd.x - lineStart.x;
+    const D = lineEnd.y - lineStart.y;
+    
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    
+    if (lenSq === 0) {
+      return Math.sqrt(A * A + B * B);
+    }
+    
+    const param = dot / lenSq;
+    
+    let xx, yy;
+    if (param < 0) {
+      xx = lineStart.x;
+      yy = lineStart.y;
+    } else if (param > 1) {
+      xx = lineEnd.x;
+      yy = lineEnd.y;
+    } else {
+      xx = lineStart.x + param * C;
+      yy = lineStart.y + param * D;
+    }
+    
+    const dx = point.x - xx;
+    const dy = point.y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
   }
 } 

@@ -1,114 +1,152 @@
-
 import { SystemData } from '../types/ComponentTypes';
 
 export const sampleSystemData: SystemData = {
   "components": [
     {
+      "name": "Raw Streaming Jobs",
       "id": "raw",
-      "name": "RawJobs",
-      "sub_components": [
+      "components": [
         {
+          "name": "Ads DCI",
           "id": "dci",
-          "name": "AdsDCI",
-          "labels": [
-            {
-              "label": "Type",
-              "evaluator": "Spark Streaming"
-            },
-            {
-              "label": "lag",
-              "evaluator": "$curl()"
-            }
+          "components": [
+            ""
           ],
-          "app_ui_link": "DataProc link to open in new tab",
-          "cosmos_link": "Cosmos link to open in new tab"
-        },
-        {
-          "id": "dcc",
-          "name": "AdsDCC",
-          "labels": [
-            {
-              "label": "Type",
-              "evaluator": "Spark Streaming"
-            },
-            {
-              "label": "lag",
-              "evaluator": "$curl()"
-            }
-          ],
-          "app_ui_link": "DataProc link to open in new tab",
-          "cosmos_link": "Cosmos link to open in new tab"
-        }
-      ],
-      "labels": [],
-      "app_ui_link": "DataProc link to open in new tab",
-      "cosmos_link": "Cosmos link to open in new tab"
-    },
-    {
-      "id": "batch",
-      "name": "Batch Jobs",
-      "sub_components": [
-        {
-          "id": "corrected",
-          "name": "CorrectedJob",
+          "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+          "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
           "labels": [
             {
               "label": "type",
-              "evaluator": "Azkaban"
+              "value": "spark-streaming"
             },
             {
-              "label": "lastProcessedBucket",
-              "evaluator": "get the value from redis"
+              "label": "lag",
+              "value": "$eval(http://get-metric-value)"
             }
           ],
-          "app_ui_link": "Azkaban UI Link to the job",
-          "cosmos_link": "cosmos link to open in new tab"
+          "connections": [
+            "bdm"
+          ]
+        },
+        {
+          "name": "Ads DCC",
+          "id": "dcc",
+          "components": [
+            ""
+          ],
+          "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+          "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
+          "labels": [
+            {
+              "label": "type",
+              "value": "spark-streaming"
+            },
+            {
+              "label": "lag",
+              "value": "$eval(http://get-metric-value)"
+            }
+          ],
+          "connections": [
+            "bdm"
+          ]
         }
       ],
-      "labels": [],
-      "app_ui_link": "Azkaban UI Link to the project",
-      "cosmos_link": "cosmos link to open in new tab"
+      "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+      "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
+      "labels": [
+        {
+          "label": "Type",
+          "value": "Spark Streaming"
+        },
+        {
+          "label": "Lag",
+          "value": "$eval(http://get-metric-value)"
+        }
+      ],
+      "connections": []
     },
     {
-      "id": "bdm",
-      "name": "BDM",
-      "sub_components": [],
+      "name": "Batch Jobs",
+      "id": "batch",
+      "components": [
+        {
+          "name": "Corrected Job",
+          "id": "corrected",
+          "components": [
+            ""
+          ],
+          "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+          "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
+          "labels": [
+            {
+              "label": "type",
+              "value": "azkaban"
+            },
+            {
+              "label": "lag",
+              "value": "$eval(http://get-metric-value)"
+            }
+          ],
+          "connections": [
+            "bdm"
+          ]
+        }
+      ],
+      "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+      "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
       "labels": [
         {
           "label": "type",
-          "evaluator": "Spark Streaming"
+          "value": "azkaban"
+        },
+        {
+          "label": "last-run",
+          "value": "$eval(http://get-metric-value)"
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "Indexer",
+      "id": "indexer",
+      "components": [
+        ""
+      ],
+      "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+      "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
+      "labels": [
+        {
+          "label": "type",
+          "value": "drop-wizard"
         },
         {
           "label": "lag",
-          "evaluator": "get cosmos metrics instantaneous value"
-        },
-        {
-          "label": "lastProcessedBatchTime",
-          "evaluator": "expression to get last processed batch time"
+          "value": "$eval(http://get-metric-value)"
         }
       ],
-      "app_ui_link": "DataProc UI Link to open in new tab",
-      "cosmos_link": "Cosmos link to open in new tab"
-    }
-  ],
-  "connections": [
-    {
-      "start": "dci",
-      "end": "bdm",
-      "label": "Kafka Stream",
-      "type": "kafka"
+      "connections": [
+        "bdm"
+      ]
     },
     {
-      "start": "dcc",
-      "end": "bdm",
-      "label": "Data Pipeline",
-      "type": "stream"
-    },
-    {
-      "start": "corrected",
-      "end": "bdm",
-      "label": "Batch API",
-      "type": "api"
+      "name": "BDM",
+      "id": "bdm",
+      "components": [
+        ""
+      ],
+      "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+      "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
+      "labels": [
+        {
+          "label": "Type",
+          "value": "Spark Streaming"
+        },
+        {
+          "label": "Lag",
+          "value": "$eval(http://get-metric-value)"
+        }
+      ],
+      "connections": []
     }
   ]
 };

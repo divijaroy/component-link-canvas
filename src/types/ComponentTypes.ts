@@ -1,36 +1,20 @@
 export interface Label {
   label: string;
-  evaluator: string;
-  value?: any; // Dynamic value from evaluation
-}
-
-export interface SubComponent {
-  id: string;
-  name: string;
-  labels: Label[];
-  app_ui_link?: string;
-  cosmos_link?: string;
+  value: string;
 }
 
 export interface Component {
   id: string;
   name: string;
-  sub_components: SubComponent[];
+  components: (Component | string)[]; // Nested components or empty strings
   labels: Label[];
   app_ui_link?: string;
-  cosmos_link?: string;
-}
-
-export interface Connection {
-  start: string;
-  end: string;
-  label?: string; // New field for connection labels
-  type?: string; // New field for connection type (e.g., "kafka", "http", etc.)
+  metrics_ui_link?: string;
+  connections: string[]; // Connections defined at component level
 }
 
 export interface SystemData {
   components: Component[];
-  connections: Connection[];
 }
 
 export interface Position {
@@ -46,7 +30,8 @@ export interface ComponentNode {
   type: 'component' | 'subcomponent';
   parentId?: string;
   app_ui_link?: string;
-  cosmos_link?: string;
+  metrics_ui_link?: string;
+  connections: string[];
 }
 
 export interface ConnectionLine {

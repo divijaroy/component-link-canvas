@@ -1,217 +1,233 @@
-import { SystemData, Position, Component } from '../types/ComponentTypes';
-
-export interface ConnectivityNode {
-  id: string;
-  component: Component;
-  position: Position;
-  inDegree: number;
-  outDegree: number;
-  totalConnections: number;
-  level: number; // Distance from center (0 = center, higher = further out)
-}
-
-export interface ConnectivityLayout {
-  nodes: ConnectivityNode[];
-  center: Position;
-  radius: number;
-}
+import { SystemData, Component, ComponentNode, Position, ConnectionLine } from '../types/ComponentTypes';
 
 export class ConnectivityLayoutService {
-  private data: SystemData;
-  private nodes: Map<string, ConnectivityNode> = new Map();
-  private connections: Map<string, Set<string>> = new Map();
-
-  constructor(data: SystemData) {
-    this.data = data;
-    this.buildConnectivityGraph();
-  }
+  private static readonly CANVAS_WIDTH = 2000;
+  private static readonly CANVAS_HEIGHT = 1200;
+  private static readonly COMPONENT_SPACING = 300;
+  private static readonly SUBCOMPONENT_OFFSET = 50;
 
   /**
-   * Build the connectivity graph from system data
-   * Only create nodes for main components, treat sub-components as part of their parents
+   * Convert system data to nodes and connections
    */
-  private buildConnectivityGraph() {
-    console.log('Building connectivity graph with data:', this.data);
-    
-    // Create nodes only for main components
-    this.data.components.forEach(component => {
-      console.log(`Creating main component node: ${component.id}`);
-      
-      this.nodes.set(component.id, {
+  static processSystemData(data: SystemData): {
+    nodes: ComponentNode[];
+    connections: ConnectionLine[];
+  } {
+    const nodes: ComponentNode[] = [];
+    const connections: ConnectionLine[] = [];
+    const connectionIdCounter = { value: 0 };
+
+    // Process main components and their sub-components
+    data.components.forEach((component) => {
+      // Add main component
+      const mainNode: ComponentNode = {
         id: component.id,
-        component,
-        position: { x: 0, y: 0 },
-        inDegree: 0,
-        outDegree: 0,
-        totalConnections: 0,
-        level: 0
+        name: component.name,
+        labels: component.labels,
+        position: { x: 0, y: 0 }, // Will be calculated later
+        type: 'component',
+        app_ui_link: component.app_ui_link,
+        metrics_ui_link: component.metrics_ui_link,
+        connections: component.connections
+      };
+      nodes.push(mainNode);
+
+      // Process sub-components
+      component.components.forEach((subComponent) => {
+        if (typeof subComponent === 'string' && subComponent.trim() === '') {
+          return; // Skip empty strings
+        }
+        
+        if (typeof subComponent === 'object') {
+          const subNode: ComponentNode = {
+            id: subComponent.id,
+            name: subComponent.name,
+            labels: subComponent.labels,
+            position: { x: 0, y: 0 }, // Will be calculated later
+            type: 'subcomponent',
+            parentId: component.id,
+            app_ui_link: subComponent.app_ui_link,
+            metrics_ui_link: subComponent.metrics_ui_link,
+            connections: subComponent.connections
+          };
+          nodes.push(subNode);
+
+          // Add connections from sub-component
+          subComponent.connections.forEach((targetId) => {
+            connections.push({
+              id: `conn-${connectionIdCounter.value++}`,
+              source: subComponent.id,
+              target: targetId,
+              label: `Data Flow`,
+              type: 'stream'
+            });
+          });
+        }
       });
     });
 
-    console.log('Created main component nodes:', Array.from(this.nodes.keys()));
+    console.log('Processed nodes:', nodes);
+    console.log('Processed connections:', connections);
 
-    // Build connection matrix and calculate degrees
-    this.data.connections.forEach(connection => {
-      const sourceId = connection.start.replace(/"/g, '');
-      const targetId = connection.end.replace(/"/g, '');
+    return { nodes, connections };
+  }
+
+  /**
+   * Calculate positions based on connectivity
+   */
+  static calculatePositions(nodes: ComponentNode[], connections: ConnectionLine[]): ComponentNode[] {
+    const positionedNodes = [...nodes];
+    
+    // Separate main components and sub-components
+    const mainComponents = positionedNodes.filter(node => node.type === 'component');
+    const subComponents = positionedNodes.filter(node => node.type === 'subcomponent');
+    
+    console.log('Main components:', mainComponents.length);
+    console.log('Sub components:', subComponents.length);
+
+    // Calculate connectivity scores for main components
+    const connectivityScores = this.calculateConnectivityScores(mainComponents, connections);
+    console.log('Connectivity scores:', connectivityScores);
+
+    // Sort main components by connectivity (most connected first)
+    const sortedMainComponents = mainComponents.sort((a, b) => {
+      const scoreA = connectivityScores.get(a.id) || 0;
+      const scoreB = connectivityScores.get(b.id) || 0;
+      return scoreB - scoreA;
+    });
+
+    // Position main components in concentric circles
+    this.positionMainComponents(sortedMainComponents);
+
+    // Position sub-components around their parents
+    this.positionSubComponents(subComponents, sortedMainComponents);
+
+    console.log('Final positioned nodes:', positionedNodes);
+    return positionedNodes;
+  }
+
+  /**
+   * Calculate connectivity scores for components
+   */
+  private static calculateConnectivityScores(
+    components: ComponentNode[], 
+    connections: ConnectionLine[]
+  ): Map<string, number> {
+    const scores = new Map<string, number>();
+    
+    components.forEach(component => {
+      let score = 0;
       
-      console.log(`Processing connection: ${sourceId} -> ${targetId}`);
+      // Count outgoing connections
+      score += connections.filter(conn => conn.source === component.id).length;
       
-      // Map sub-component connections to their parent components
-      const sourceParent = this.findParentComponent(sourceId);
-      const targetParent = this.findParentComponent(targetId);
+      // Count incoming connections
+      score += connections.filter(conn => conn.target === component.id).length;
       
-      if (sourceParent && targetParent) {
-        console.log(`Mapped connection: ${sourceParent} -> ${targetParent}`);
-        
-        if (!this.connections.has(sourceParent)) {
-          this.connections.set(sourceParent, new Set());
-        }
-        if (!this.connections.has(targetParent)) {
-          this.connections.set(targetParent, new Set());
-        }
-        
-        this.connections.get(sourceParent)!.add(targetParent);
-        this.connections.get(targetParent)!.add(sourceParent);
+      // Add bonus for being a hub (many connections)
+      if (score > 2) {
+        score += 2;
       }
-    });
-
-    console.log('Connection matrix:', Object.fromEntries(
-      Array.from(this.connections.entries()).map(([key, value]) => [key, Array.from(value)])
-    ));
-
-    // Calculate degrees for each node
-    this.nodes.forEach(node => {
-      const connections = this.connections.get(node.id) || new Set();
-      node.totalConnections = connections.size;
       
-      // Calculate in/out degrees based on mapped connections
-      this.data.connections.forEach(connection => {
-        const sourceId = connection.start.replace(/"/g, '');
-        const targetId = connection.end.replace(/"/g, '');
-        
-        const sourceParent = this.findParentComponent(sourceId);
-        const targetParent = this.findParentComponent(targetId);
-        
-        if (node.id === targetParent) {
-          node.inDegree++;
-        }
-        if (node.id === sourceParent) {
-          node.outDegree++;
-        }
-      });
+      scores.set(component.id, score);
+    });
+    
+    return scores;
+  }
+
+  /**
+   * Position main components in concentric circles
+   */
+  private static positionMainComponents(components: ComponentNode[]): void {
+    if (components.length === 0) return;
+
+    const centerX = this.CANVAS_WIDTH / 2;
+    const centerY = this.CANVAS_HEIGHT / 2;
+
+    if (components.length === 1) {
+      components[0].position = { x: centerX, y: centerY };
+      return;
+    }
+
+    // Position components in concentric circles
+    const radius = Math.min(this.CANVAS_WIDTH, this.CANVAS_HEIGHT) / 4;
+    const angleStep = (2 * Math.PI) / components.length;
+
+    components.forEach((component, index) => {
+      const angle = index * angleStep;
+      component.position = {
+        x: centerX + radius * Math.cos(angle),
+        y: centerY + radius * Math.sin(angle)
+      };
     });
   }
 
   /**
-   * Find the parent component for a sub-component ID
+   * Position sub-components around their parents
    */
-  private findParentComponent(componentId: string): string | null {
-    // First check if it's a main component
-    if (this.nodes.has(componentId)) {
-      return componentId;
-    }
-    
-    // Then check if it's a sub-component
-    for (const component of this.data.components) {
-      if (component.sub_components.some(sub => sub.id === componentId)) {
-        return component.id;
+  private static positionSubComponents(
+    subComponents: ComponentNode[], 
+    mainComponents: ComponentNode[]
+  ): void {
+    const parentPositions = new Map<string, Position>();
+    mainComponents.forEach(comp => {
+      parentPositions.set(comp.id, comp.position);
+    });
+
+    subComponents.forEach((subComponent, index) => {
+      const parentId = subComponent.parentId;
+      if (!parentId || !parentPositions.has(parentId)) {
+        // Fallback position if parent not found
+        subComponent.position = { x: 100 + index * 200, y: 100 };
+        return;
       }
-    }
-    
-    return null;
+
+      const parentPos = parentPositions.get(parentId)!;
+      const angle = (index * (2 * Math.PI)) / 4; // Distribute around parent
+      
+      subComponent.position = {
+        x: parentPos.x + this.SUBCOMPONENT_OFFSET * Math.cos(angle),
+        y: parentPos.y + this.SUBCOMPONENT_OFFSET * Math.sin(angle)
+      };
+    });
   }
 
   /**
-   * Calculate layout based on connectivity
+   * Get bounding box for a component
    */
-  calculateLayout(containerWidth: number, containerHeight: number): ConnectivityLayout {
-    const nodes = Array.from(this.nodes.values());
-    const center = { x: containerWidth / 2, y: containerHeight / 2 };
-    const maxRadius = Math.min(containerWidth, containerHeight) * 0.35;
-    
-    // Sort nodes by total connections (most connected first)
-    nodes.sort((a, b) => b.totalConnections - a.totalConnections);
-    
-    // Assign levels based on connectivity
-    this.assignLevels(nodes);
-    
-    // Position nodes in concentric circles based on levels
-    this.positionNodesInCircles(nodes, center, maxRadius);
+  static getComponentBoundingBox(node: ComponentNode): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } {
+    const isMain = node.type === 'component';
+    const width = isMain ? 320 : 288; // Card widths
+    const height = isMain ? 160 : 140; // Card heights
     
     return {
-      nodes,
-      center,
-      radius: maxRadius
+      x: node.position.x - width / 2,
+      y: node.position.y - height / 2,
+      width,
+      height
     };
   }
 
   /**
-   * Assign levels based on connectivity (0 = center, higher = further out)
+   * Get all component bounding boxes for collision detection
    */
-  private assignLevels(nodes: ConnectivityNode[]) {
-    const maxConnections = Math.max(...nodes.map(n => n.totalConnections));
-    const minConnections = Math.min(...nodes.map(n => n.totalConnections));
+  static getAllBoundingBoxes(nodes: ComponentNode[]): Map<string, {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }> {
+    const boundingBoxes = new Map();
     
     nodes.forEach(node => {
-      if (node.totalConnections === 0) {
-        node.level = 3; // Disconnected nodes go to the outside
-      } else {
-        // Calculate level based on connectivity (0 = most connected, 3 = least connected)
-        const connectivityRatio = (maxConnections - node.totalConnections) / (maxConnections - minConnections);
-        node.level = Math.floor(connectivityRatio * 3);
-      }
-    });
-  }
-
-  /**
-   * Position nodes in concentric circles
-   */
-  private positionNodesInCircles(nodes: ConnectivityNode[], center: Position, maxRadius: number) {
-    // Group nodes by level
-    const nodesByLevel = new Map<number, ConnectivityNode[]>();
-    nodes.forEach(node => {
-      if (!nodesByLevel.has(node.level)) {
-        nodesByLevel.set(node.level, []);
-      }
-      nodesByLevel.get(node.level)!.push(node);
+      boundingBoxes.set(node.id, this.getComponentBoundingBox(node));
     });
     
-    // Position each level in a circle
-    const maxLevel = Math.max(...nodesByLevel.keys());
-    
-    nodesByLevel.forEach((levelNodes, level) => {
-      const radius = (level / maxLevel) * maxRadius;
-      const angleStep = (2 * Math.PI) / levelNodes.length;
-      
-      levelNodes.forEach((node, index) => {
-        const angle = index * angleStep;
-        node.position = {
-          x: center.x + Math.cos(angle) * radius,
-          y: center.y + Math.sin(angle) * radius
-        };
-      });
-    });
-  }
-
-  /**
-   * Get node by ID
-   */
-  getNode(id: string): ConnectivityNode | undefined {
-    return this.nodes.get(id);
-  }
-
-  /**
-   * Get all nodes
-   */
-  getAllNodes(): ConnectivityNode[] {
-    return Array.from(this.nodes.values());
-  }
-
-  /**
-   * Get connections for a node
-   */
-  getConnections(nodeId: string): string[] {
-    return Array.from(this.connections.get(nodeId) || []);
+    return boundingBoxes;
   }
 } 

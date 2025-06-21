@@ -1,0 +1,160 @@
+{
+  "components": [
+    {
+      "name": "API Gateway",
+      "id": "api-gateway",
+      "type": "component",
+      "components": [],
+      "app_ui_link": "http://link.to/gateway-dashboard",
+      "metrics_ui_link": "http://link.to/gateway-metrics",
+      "labels": [
+        { "label": "type", "value": "kong" },
+        { "label": "requests", "value": "$eval(http://get-metric-value)" }
+      ],
+      "connections": ["user-service", "order-service", "product-service"]
+    },
+    {
+      "name": "Core Services",
+      "id": "core-services",
+      "type": "component",
+      "labels": [
+        { "label": "domain", "value": "core-business" },
+        { "label": "language", "value": "java" }
+      ],
+      "app_ui_link": "http://link.to/core-services-overview",
+      "metrics_ui_link": "http://link.to/core-services-metrics",
+      "components": [
+        {
+          "name": "User Service",
+          "id": "user-service",
+          "type": "component",
+          "components": [],
+          "labels": [
+            { "label": "type", "value": "drop-wizard" },
+            { "label": "version", "value": "1.2.3" }
+          ],
+          "connections": ["user-db", "redis-cache"]
+        },
+        {
+          "name": "Order Service",
+          "id": "order-service",
+          "type": "component",
+          "components": [],
+          "labels": [
+            { "label": "type", "value": "rest" },
+            { "label": "version", "value": "2.1.0" }
+          ],
+          "connections": ["order-db", "message-queue"]
+        },
+        {
+          "name": "Product Service",
+          "id": "product-service",
+          "type": "component",
+          "components": [],
+          "labels": [
+            { "label": "type", "value": "drop-wizard" },
+            { "label": "version", "value": "3.0.0" }
+          ],
+          "connections": ["product-db"]
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "Data Infrastructure",
+      "id": "data-infra",
+      "type": "component",
+      "labels": [
+        { "label": "managed_by", "value": "dba-team" }
+      ],
+      "components": [
+        {
+          "name": "User DB",
+          "id": "user-db",
+          "type": "component",
+          "components": [],
+          "labels": [{ "label": "type", "value": "postgres" }],
+          "connections": []
+        },
+        {
+          "name": "Order DB",
+          "id": "order-db",
+          "type": "component",
+          "components": [],
+          "labels": [{ "label": "type", "value": "mysql" }],
+          "connections": []
+        },
+        {
+          "name": "Product DB",
+          "id": "product-db",
+          "type": "component",
+          "components": [],
+          "labels": [{ "label": "type", "value": "mongodb" }],
+          "connections": []
+        },
+        {
+            "name": "Redis Cache",
+            "id": "redis-cache",
+            "type": "component",
+            "components": [],
+            "labels": [{ "label": "type", "value": "cache" }],
+            "connections": []
+        }
+      ],
+      "connections": []
+    },
+    {
+        "name": "Messaging & Streaming",
+        "id": "messaging-streaming",
+        "type": "component",
+        "labels": [],
+        "components": [
+            {
+                "name": "Message Queue",
+                "id": "message-queue",
+                "type": "component",
+                "components": [],
+                "labels": [{ "label": "type", "value": "rabbitmq" }],
+                "connections": ["payment-processor", "notification-stream-job"]
+            },
+            {
+                "name": "Analytics Stream Processor",
+                "id": "notification-stream-job",
+                "type": "component",
+                "components": [],
+                "labels": [
+                    { "label": "type", "value": "spark-streaming" },
+                    { "label": "lag", "value": "$eval(http://get-metric-value)" }
+                ],
+                "connections": ["analytics-db"]
+            }
+        ],
+        "connections": []
+    },
+    {
+        "name": "Third Party & Analytics",
+        "id": "third-party",
+        "type": "component",
+        "labels": [],
+        "components": [
+            {
+                "name": "Payment Processor",
+                "id": "payment-processor",
+                "type": "component",
+                "components": [],
+                "labels": [{ "label": "type", "value": "external-api" }],
+                "connections": []
+            },
+            {
+                "name": "Analytics DB",
+                "id": "analytics-db",
+                "type": "component",
+                "components": [],
+                "labels": [{ "label": "type", "value": "data-warehouse" }],
+                "connections": []
+            }
+        ],
+        "connections": []
+    }
+  ]
+} 

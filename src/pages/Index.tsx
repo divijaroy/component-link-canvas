@@ -1,11 +1,14 @@
-import React from 'react';
-import { EnhancedSystemDashboard } from '../components/EnhancedSystemDashboard';
-import { sampleSystemData } from '../data/sampleData';
+import { useState } from 'react';
+import { EnhancedSystemDashboard } from '@/components/EnhancedSystemDashboard';
+import { Button } from '@/components/ui/button';
 
 const Index = () => {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+
   return (
-    <div className="w-full h-screen">
-      <EnhancedSystemDashboard data={sampleSystemData} />
+    <div className="w-full h-screen bg-background">
+      <EnhancedSystemDashboard />
     </div>
   );
 };

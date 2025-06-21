@@ -49,8 +49,11 @@ export const EnhancedSystemDashboard: React.FC = () => {
 
   useEffect(() => {
     const performLayout = async () => {
+      // Determine which data file to load via environment variable
+      const dataFile = import.meta.env.VITE_DATA_FILE || 'data.json';
+      
       // Fetch data from the server
-      const response = await fetch('/data.json');
+      const response = await fetch(`/${dataFile}`);
       const systemData = await response.json();
 
       const { components, connections } = processSystemData(systemData);
@@ -87,8 +90,11 @@ export const EnhancedSystemDashboard: React.FC = () => {
 
   const handleRefreshLayout = async () => {
     clearLayoutCache();
+    // Determine which data file to load via environment variable
+    const dataFile = import.meta.env.VITE_DATA_FILE || 'data.json';
+
     // Fetch data from the server
-    const response = await fetch('/data.json');
+    const response = await fetch(`/${dataFile}`);
     const systemData = await response.json();
 
     const { components, connections } = processSystemData(systemData);

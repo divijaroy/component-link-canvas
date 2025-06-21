@@ -8,7 +8,7 @@ import { LabelEvaluator } from '../services/LabelEvaluator';
 interface MaterialComponentCardProps {
   node: ComponentNode;
   subComponents?: ComponentNode[];
-  onClick?: () => void;
+  onClick?: (nodeId: string) => void;
 }
 
 export const MaterialComponentCard = ({ node, subComponents = [], onClick }: MaterialComponentCardProps) => {
@@ -59,7 +59,7 @@ export const MaterialComponentCard = ({ node, subComponents = [], onClick }: Mat
         hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer
         ${isMainComponent ? 'ring-2 ring-blue-200' : 'ring-1 ring-gray-200'}
       `}
-      onClick={onClick}
+      onClick={() => onClick?.(node.id)}
     >
       <CardHeader className={`${isMainComponent ? 'pb-3 px-5 pt-4' : 'pb-2 px-4 pt-3'}`}>
         <div className="flex items-center justify-between">
@@ -133,7 +133,11 @@ export const MaterialComponentCard = ({ node, subComponents = [], onClick }: Mat
                 {subComponents.map((subComponent) => (
                   <div
                     key={subComponent.id}
-                    className="bg-gray-50 rounded-md p-2 border border-gray-200"
+                    className="bg-gray-50 rounded-md p-2 border border-gray-200 hover:bg-gray-100"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent parent card's onClick
+                      onClick?.(subComponent.id);
+                    }}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">

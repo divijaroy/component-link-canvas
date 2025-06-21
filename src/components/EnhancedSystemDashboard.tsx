@@ -4,6 +4,7 @@ import { MaterialComponentCard } from './MaterialComponentCard';
 import { MovingConnectionLine } from './MovingConnectionLine';
 import { ConnectivityLayoutService } from '../services/ConnectivityLayoutService';
 import { sampleSystemData } from '../data/sampleData';
+import { ComponentInfoDialog } from './ComponentInfoDialog';
 
 interface EnhancedSystemDashboardProps {
   data?: SystemData;
@@ -27,7 +28,7 @@ export const EnhancedSystemDashboard: React.FC<EnhancedSystemDashboardProps> = (
 }) => {
   const [nodes, setNodes] = useState<ComponentNode[]>([]);
   const [connections, setConnections] = useState<ConnectionLine[]>([]);
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [infoNode, setInfoNode] = useState<ComponentNode | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -71,6 +72,11 @@ export const EnhancedSystemDashboard: React.FC<EnhancedSystemDashboardProps> = (
       container.scrollTop = (canvasSize.height - container.clientHeight) / 2;
     }
   }, [canvasSize]);
+
+  const handleNodeClick = (nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    setInfoNode(node || null);
+  };
 
   const getSubComponents = (parentId: string): ComponentNode[] => {
     return nodes.filter(node => node.parentId === parentId);
@@ -169,27 +175,20 @@ export const EnhancedSystemDashboard: React.FC<EnhancedSystemDashboardProps> = (
               <MaterialComponentCard
                 node={node}
                 subComponents={node.type === 'component' ? getSubComponents(node.id) : []}
-                onClick={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
+                onClick={handleNodeClick}
               />
             </div>
           ))}
         </div>
       </div>
 
-      {/* Debug Info */}
-      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-4 shadow-lg z-10">
-        <h3 className="font-semibold text-gray-800 mb-2">System Overview</h3>
-        <div className="text-sm text-gray-600 space-y-1">
-          <div>Main Components: {getMainComponents().length}</div>
-          <div>Sub Components: {nodes.filter(n => n.type === 'subcomponent').length}</div>
-          <div>Connections: {connections.length}</div>
-          {selectedNode && (
-            <div className="mt-2 pt-2 border-t border-gray-200">
-              <div className="font-medium">Selected: {selectedNode}</div>
-            </div>
-          )}
-        </div>
-      </div>
+      {infoNode && (
+        <ComponentInfoDialog
+          node={infoNode}
+          open={!!infoNode}
+          onOpenChange={(isOpen) => !isOpen && setInfoNode(null)}
+        />
+      )}
     </div>
   );
 }; 

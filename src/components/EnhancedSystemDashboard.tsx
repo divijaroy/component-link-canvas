@@ -3,7 +3,6 @@ import { Component, Layout, SystemData, Connection } from '../types/ComponentTyp
 import { MaterialComponentCard } from './MaterialComponentCard';
 import { MovingConnectionLine } from './MovingConnectionLine';
 import { generateLayout, clearLayoutCache } from '../services/ConnectivityLayoutService';
-import { sampleSystemData } from '../data/sampleData';
 import { ComponentInfoDialog } from './ComponentInfoDialog';
 import { RefreshCw } from 'lucide-react';
 
@@ -50,7 +49,11 @@ export const EnhancedSystemDashboard: React.FC = () => {
 
   useEffect(() => {
     const performLayout = async () => {
-      const { components, connections } = processSystemData(sampleSystemData);
+      // Fetch data from the server
+      const response = await fetch('/data.json');
+      const systemData = await response.json();
+
+      const { components, connections } = processSystemData(systemData);
       console.log('Extracted components:', components.map(c => ({ id: c.id, name: c.name, parentId: c.parentId })));
       console.log('Extracted connections:', connections);
       
@@ -84,7 +87,11 @@ export const EnhancedSystemDashboard: React.FC = () => {
 
   const handleRefreshLayout = async () => {
     clearLayoutCache();
-    const { components, connections } = processSystemData(sampleSystemData);
+    // Fetch data from the server
+    const response = await fetch('/data.json');
+    const systemData = await response.json();
+
+    const { components, connections } = processSystemData(systemData);
     const laidOut = await generateLayout(components, connections, true);
     setLayout(laidOut);
   };

@@ -1,4 +1,19 @@
-# Welcome to your Lovable project
+# Netra
+
+This is a dynamic system architecture visualization tool built with React, Vite, and TypeScript. It uses a declarative approach to render system components and their connections from a JSON configuration.
+
+## Features
+
+*   **Declarative Component Layout**: Define your system components and their relationships in a simple JSON format.
+*   **Dynamic Label Evaluation**: Labels can fetch real-time data from specified endpoints.
+*   **Interactive UI**: Click on components to view detailed information.
+*   **Nested Component Groups**: Organize components into logical groups with automatic bounding box calculation.
+*   **Connection Routing**: Connections are intelligently routed to avoid overlapping nodes.
+*   **Scalable and Performant**: Built with Vite for a fast development experience and optimized for performance.
+
+## Getting Started
+
+Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
 
 ## Project info
 

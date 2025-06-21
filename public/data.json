@@ -1,14 +1,14 @@
-import { SystemData } from '../types/ComponentTypes';
-
-export const sampleSystemData: SystemData = {
+{
   "components": [
     {
       "name": "Raw Streaming Jobs",
       "id": "raw",
+      "type": "component",
       "components": [
         {
           "name": "Ads DCI",
           "id": "dci",
+          "type": "component",
           "components": [
             ""
           ],
@@ -31,6 +31,7 @@ export const sampleSystemData: SystemData = {
         {
           "name": "Ads DCC",
           "id": "dcc",
+          "type": "component",
           "components": [
             ""
           ],
@@ -68,10 +69,12 @@ export const sampleSystemData: SystemData = {
     {
       "name": "Batch Jobs",
       "id": "batch",
+      "type": "component",
       "components": [
         {
           "name": "Corrected Job",
           "id": "corrected",
+          "type": "component",
           "components": [
             ""
           ],
@@ -109,6 +112,7 @@ export const sampleSystemData: SystemData = {
     {
       "name": "Indexer",
       "id": "indexer",
+      "type": "component",
       "components": [
         ""
       ],
@@ -131,6 +135,7 @@ export const sampleSystemData: SystemData = {
     {
       "name": "BDM",
       "id": "bdm",
+      "type": "component",
       "components": [
         ""
       ],
@@ -149,4 +154,4 @@ export const sampleSystemData: SystemData = {
       "connections": []
     }
   ]
-};
+} 

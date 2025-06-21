@@ -32,6 +32,17 @@ export class ConnectivityLayoutService {
       };
       nodes.push(mainNode);
 
+      // Add connections from the main component
+      component.connections.forEach((targetId) => {
+        connections.push({
+          id: `conn-${connectionIdCounter.value++}`,
+          source: component.id,
+          target: targetId,
+          label: `Data Flow`,
+          type: 'stream'
+        });
+      });
+
       // Process sub-components
       component.components.forEach((subComponent) => {
         if (typeof subComponent === 'string' && subComponent.trim() === '') {

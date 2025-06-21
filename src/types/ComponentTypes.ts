@@ -27,8 +27,11 @@ export interface ComponentNode {
   name: string;
   labels: Label[];
   position: Position;
+  width: number;
+  height: number;
   type: 'component' | 'subcomponent';
   parentId?: string;
+  level: number;
   app_ui_link?: string;
   metrics_ui_link?: string;
   connections: string[];
@@ -39,7 +42,8 @@ export interface ConnectionLine {
   source: string;
   target: string;
   label?: string;
-  type?: string;
+  type?: 'stream' | 'api';
+  path?: Position[];
 }
 
 export interface ComponentGroup {

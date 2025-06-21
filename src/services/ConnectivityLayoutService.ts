@@ -1,244 +1,195 @@
+import ELK from 'elkjs/lib/elk.bundled.js';
 import { SystemData, Component, ComponentNode, Position, ConnectionLine } from '../types/ComponentTypes';
 
-export class ConnectivityLayoutService {
-  private static readonly CANVAS_WIDTH = 2000;
-  private static readonly CANVAS_HEIGHT = 1200;
-  private static readonly COMPONENT_SPACING = 300;
-  private static readonly SUBCOMPONENT_OFFSET = 200;
+const PADDING = 20;
+const CARD_HEADER_HEIGHT = 50;
+const CARD_LABEL_HEIGHT = 20;
 
-  /**
-   * Convert system data to nodes and connections
-   */
-  static processSystemData(data: SystemData): {
-    nodes: ComponentNode[];
-    connections: ConnectionLine[];
-  } {
+const elk = new ELK();
+
+export class ConnectivityLayoutService {
+
+  static async processAndLayout(data: SystemData): Promise<{ nodes: ComponentNode[], connections: ConnectionLine[] }> {
+    const connectionIdCounter = { value: 0 };
+    
+    const { nodes, connections: originalConnections } = this.createFlatNodeList(data, connectionIdCounter);
+    this.calculateNodeSizes(nodes);
+    const elkGraph = this.buildElkHierarchy(nodes, originalConnections);
+    const layout = await elk.layout(elkGraph);
+    
+    const laidOutNodes: ComponentNode[] = [];
+    this.applyElkLayout(layout, nodes, laidOutNodes);
+
+    // After nodes are positioned, extract the edge routes from the layout
+    const routedConnections = this.extractEdgeRoutes(layout, originalConnections);
+
+    return { nodes: laidOutNodes, connections: routedConnections };
+  }
+
+  private static createFlatNodeList(data: SystemData, connectionIdCounter: { value: number }) {
     const nodes: ComponentNode[] = [];
     const connections: ConnectionLine[] = [];
-    const connectionIdCounter = { value: 0 };
-
-    // Process main components and their sub-components
-    data.components.forEach((component) => {
-      // Add main component
-      const mainNode: ComponentNode = {
-        id: component.id,
-        name: component.name,
-        labels: component.labels,
-        position: { x: 0, y: 0 }, // Will be calculated later
-        type: 'component',
-        app_ui_link: component.app_ui_link,
-        metrics_ui_link: component.metrics_ui_link,
-        connections: component.connections
-      };
-      nodes.push(mainNode);
-
-      // Add connections from the main component
-      component.connections.forEach((targetId) => {
-        connections.push({
-          id: `conn-${connectionIdCounter.value++}`,
-          source: component.id,
-          target: targetId,
-          label: `Data Flow`,
-          type: 'stream'
-        });
-      });
-
-      // Process sub-components
-      component.components.forEach((subComponent) => {
-        if (typeof subComponent === 'string' && subComponent.trim() === '') {
-          return; // Skip empty strings
-        }
+    
+    function traverse(components: (Component | string)[], parentId?: string, level: number = 0) {
+      components.forEach(comp => {
+        if (typeof comp === 'string' || !comp.id) return;
         
-        if (typeof subComponent === 'object') {
-          const subNode: ComponentNode = {
-            id: subComponent.id,
-            name: subComponent.name,
-            labels: subComponent.labels,
-            position: { x: 0, y: 0 }, // Will be calculated later
-            type: 'subcomponent',
-            parentId: component.id,
-            app_ui_link: subComponent.app_ui_link,
-            metrics_ui_link: subComponent.metrics_ui_link,
-            connections: subComponent.connections
-          };
-          nodes.push(subNode);
-
-          // Add connections from sub-component
-          subComponent.connections.forEach((targetId) => {
+        // Create a node for every component, regardless of whether it has connections
+        const node: ComponentNode = {
+          id: comp.id, name: comp.name, labels: comp.labels,
+          connections: comp.connections, parentId, level,
+          type: level === 0 ? 'component' : 'subcomponent',
+          app_ui_link: comp.app_ui_link, metrics_ui_link: comp.metrics_ui_link,
+          position: { x: 0, y: 0 }, width: 320, height: 100, // Default sizes
+        };
+        nodes.push(node);
+        
+        // Only create connections if the component has connections defined
+        if (comp.connections && comp.connections.length > 0) {
+          comp.connections.forEach(targetId => {
             connections.push({
-              id: `conn-${connectionIdCounter.value++}`,
-              source: subComponent.id,
-              target: targetId,
-              label: `Data Flow`,
-              type: 'stream'
+              id: `conn-${connectionIdCounter.value++}`, source: comp.id, target: targetId,
+              label: `Data Flow`, type: 'stream'
             });
           });
         }
+
+        // Recursively process nested components
+        if (comp.components && comp.components.length > 0) {
+          traverse(comp.components, comp.id, level + 1);
+        }
       });
-    });
-
-    console.log('Processed nodes:', nodes);
-    console.log('Processed connections:', connections);
-
+    }
+    traverse(data.components);
     return { nodes, connections };
   }
 
-  /**
-   * Calculate positions based on connectivity
-   */
-  static calculatePositions(nodes: ComponentNode[], connections: ConnectionLine[]): ComponentNode[] {
-    const positionedNodes = [...nodes];
-    
-    // Separate main components and sub-components
-    const mainComponents = positionedNodes.filter(node => node.type === 'component');
-    const subComponents = positionedNodes.filter(node => node.type === 'subcomponent');
-    
-    console.log('Main components:', mainComponents.length);
-    console.log('Sub components:', subComponents.length);
-
-    // Calculate connectivity scores for main components
-    const connectivityScores = this.calculateConnectivityScores(mainComponents, connections);
-    console.log('Connectivity scores:', connectivityScores);
-
-    // Sort main components by connectivity (most connected first)
-    const sortedMainComponents = mainComponents.sort((a, b) => {
-      const scoreA = connectivityScores.get(a.id) || 0;
-      const scoreB = connectivityScores.get(b.id) || 0;
-      return scoreB - scoreA;
-    });
-
-    // Position main components in concentric circles
-    this.positionMainComponents(sortedMainComponents);
-
-    // Position sub-components around their parents
-    this.positionSubComponents(subComponents, sortedMainComponents);
-
-    console.log('Final positioned nodes:', positionedNodes);
-    return positionedNodes;
-  }
-
-  /**
-   * Calculate connectivity scores for components
-   */
-  private static calculateConnectivityScores(
-    components: ComponentNode[], 
-    connections: ConnectionLine[]
-  ): Map<string, number> {
-    const scores = new Map<string, number>();
-    
-    components.forEach(component => {
-      let score = 0;
+  private static calculateNodeSizes(nodes: ComponentNode[]) {
+    // Calculate dynamic heights based on the number of labels
+    for (const node of nodes) {
+      node.width = 320;
       
-      // Count outgoing connections
-      score += connections.filter(conn => conn.source === component.id).length;
+      // Calculate height based on number of labels (capped at 5)
+      const labelCount = Math.min(node.labels.length, 5);
       
-      // Count incoming connections
-      score += connections.filter(conn => conn.target === component.id).length;
+      // Base height: header (32px) + content padding (12px) + capsule layout
+      let baseHeight = 44; // 32px header + 12px padding
       
-      // Add bonus for being a hub (many connections)
-      if (score > 2) {
-        score += 2;
+      if (labelCount > 0) {
+        // Capsule design: each row can fit ~2-3 capsules depending on width
+        // Each capsule is ~24px tall, with 6px gap
+        const capsulesPerRow = 2; // Conservative estimate
+        const rows = Math.ceil(labelCount / capsulesPerRow);
+        const capsuleHeight = 24; // height of each capsule
+        const rowGap = 6;
+        
+        const labelHeight = rows * capsuleHeight + (rows - 1) * rowGap;
+        baseHeight += labelHeight;
+        
+        // Add extra space for "more" indicator if there are more than 5 labels
+        if (node.labels.length > 5) {
+          baseHeight += 24; // Space for "+X more" capsule
+        }
       }
       
-      scores.set(component.id, score);
-    });
-    
-    return scores;
-  }
-
-  /**
-   * Position main components in concentric circles
-   */
-  private static positionMainComponents(components: ComponentNode[]): void {
-    if (components.length === 0) return;
-
-    const centerX = this.CANVAS_WIDTH / 2;
-    const centerY = this.CANVAS_HEIGHT / 2;
-
-    if (components.length === 1) {
-      components[0].position = { x: centerX, y: centerY };
-      return;
+      // Ensure minimum height for all components
+      node.height = Math.max(baseHeight, 80);
     }
-
-    // Position components in concentric circles
-    const radius = Math.min(this.CANVAS_WIDTH, this.CANVAS_HEIGHT) / 4;
-    const angleStep = (2 * Math.PI) / components.length;
-
-    components.forEach((component, index) => {
-      const angle = index * angleStep;
-      component.position = {
-        x: centerX + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle)
-      };
-    });
   }
 
-  /**
-   * Position sub-components around their parents
-   */
-  private static positionSubComponents(
-    subComponents: ComponentNode[], 
-    mainComponents: ComponentNode[]
-  ): void {
-    const parentPositions = new Map<string, Position>();
-    mainComponents.forEach(comp => {
-      parentPositions.set(comp.id, comp.position);
+  private static buildElkHierarchy(nodes: ComponentNode[], connections: ConnectionLine[]) {
+    const elkNodeMap = new Map();
+    nodes.forEach(n => {
+        elkNodeMap.set(n.id, {
+            id: n.id, width: n.width, height: n.height, children: [],
+            layoutOptions: { 'elk.padding.top': '60', 'elk.padding.left': '20', 'elk.padding.bottom': '20', 'elk.padding.right': '20' }
+        });
     });
 
-    subComponents.forEach((subComponent, index) => {
-      const parentId = subComponent.parentId;
-      if (!parentId || !parentPositions.has(parentId)) {
-        // Fallback position if parent not found
-        subComponent.position = { x: 100 + index * 200, y: 100 };
-        return;
-      }
-
-      const parentPos = parentPositions.get(parentId)!;
-      const angle = (index * (2 * Math.PI)) / 4; // Distribute around parent
-      
-      subComponent.position = {
-        x: parentPos.x + this.SUBCOMPONENT_OFFSET * Math.cos(angle),
-        y: parentPos.y + this.SUBCOMPONENT_OFFSET * Math.sin(angle)
-      };
+    const rootElkNodes: any[] = [];
+    nodes.forEach(n => {
+        if (n.parentId && elkNodeMap.has(n.parentId)) {
+            elkNodeMap.get(n.parentId).children.push(elkNodeMap.get(n.id));
+        } else {
+            rootElkNodes.push(elkNodeMap.get(n.id));
+        }
     });
-  }
 
-  /**
-   * Get bounding box for a component
-   */
-  static getComponentBoundingBox(node: ComponentNode): {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } {
-    const isMain = node.type === 'component';
-    const width = isMain ? 320 : 288; // Card widths
-    const height = isMain ? 160 : 140; // Card heights
-    
     return {
-      x: node.position.x - width / 2,
-      y: node.position.y - height / 2,
-      width,
-      height
+      id: 'root',
+      layoutOptions: { 
+        'elk.algorithm': 'layered',
+        'elk.direction': 'RIGHT',
+        'elk.spacing.nodeNode': '80',
+        'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+        'elk.edgeRouting': 'ORTHOGONAL',
+      },
+      children: rootElkNodes,
+      edges: connections.map(c => ({ id: c.id, sources: [c.source], targets: [c.target] })),
     };
   }
 
-  /**
-   * Get all component bounding boxes for collision detection
-   */
-  static getAllBoundingBoxes(nodes: ComponentNode[]): Map<string, {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }> {
-    const boundingBoxes = new Map();
-    
-    nodes.forEach(node => {
-      boundingBoxes.set(node.id, this.getComponentBoundingBox(node));
+  private static applyElkLayout(layout: any, originalNodes: ComponentNode[], laidOutNodes: ComponentNode[]) {
+    if (!layout.children) return;
+
+    function applyRecursively(elkChildren: any[], parentX = 0, parentY = 0) {
+      for (const elkNode of elkChildren) {
+        const absoluteX = (elkNode.x || 0) + parentX;
+        const absoluteY = (elkNode.y || 0) + parentY;
+
+        const originalNode = originalNodes.find(n => n.id === elkNode.id);
+        if (originalNode) {
+          const newNode: ComponentNode = {
+            ...originalNode,
+            position: {
+              x: absoluteX + elkNode.width / 2,
+              y: absoluteY + elkNode.height / 2,
+            },
+            width: elkNode.width,
+            height: elkNode.height,
+          };
+          laidOutNodes.push(newNode);
+        }
+
+        if (elkNode.children) {
+          applyRecursively(elkNode.children, absoluteX, absoluteY);
+        }
+      }
+    }
+
+    applyRecursively(layout.children);
+  }
+
+  private static extractEdgeRoutes(layout: any, originalConnections: ConnectionLine[]): ConnectionLine[] {
+    const newConnections: ConnectionLine[] = [];
+    if (!layout.edges) return originalConnections;
+
+    layout.edges.forEach((elkEdge: any) => {
+      const original = originalConnections.find(c => c.id === elkEdge.id);
+      if (original) {
+        const points: Position[] = [];
+        (elkEdge.sections || []).forEach((section: any) => {
+          points.push({ x: section.startPoint.x, y: section.startPoint.y });
+          (section.bendPoints || []).forEach((bp: any) => {
+            points.push({ x: bp.x, y: bp.y });
+          });
+          points.push({ x: section.endPoint.x, y: section.endPoint.y });
+        });
+        
+        // Add the routed path to the connection object
+        newConnections.push({ ...original, path: points });
+      }
     });
-    
-    return boundingBoxes;
+
+    return newConnections;
+  }
+
+  static getComponentBoundingBox(node: ComponentNode): { x: number; y: number; width: number; height: number; } {
+    return {
+      x: node.position.x - node.width / 2,
+      y: node.position.y - node.height / 2,
+      width: node.width,
+      height: node.height,
+    };
   }
 } 

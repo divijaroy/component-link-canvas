@@ -7,11 +7,10 @@ import { LabelEvaluator } from '../services/LabelEvaluator';
 
 interface MaterialComponentCardProps {
   node: ComponentNode;
-  subComponents?: ComponentNode[];
   onClick?: (nodeId: string) => void;
 }
 
-export const MaterialComponentCard = ({ node, subComponents = [], onClick }: MaterialComponentCardProps) => {
+export const MaterialComponentCard = ({ node, onClick }: MaterialComponentCardProps) => {
   const [evaluatedLabels, setEvaluatedLabels] = useState<Label[]>(node.labels);
   const isMainComponent = node.type === 'component';
   
@@ -29,21 +28,20 @@ export const MaterialComponentCard = ({ node, subComponents = [], onClick }: Mat
   }, [node.labels]);
   
   const getIcon = () => {
-    if (isMainComponent) {
-      return <Server className="w-5 h-5 text-blue-600" />;
-    }
-    
     const name = node.name.toLowerCase();
     if (name.includes('spark') || name.includes('stream')) {
-      return <Zap className="w-4 h-4 text-yellow-600" />;
+      return <Zap className="w-3.5 h-3.5 text-yellow-600" />;
     }
     if (name.includes('batch') || name.includes('job')) {
-      return <Clock className="w-4 h-4 text-green-600" />;
+      return <Clock className="w-3.5 h-3.5 text-green-600" />;
     }
     if (name.includes('indexer')) {
-      return <Database className="w-4 h-4 text-purple-600" />;
+      return <Database className="w-3.5 h-3.5 text-purple-600" />;
     }
-    return <Component className="w-4 h-4 text-gray-600" />;
+    if (name.includes('bdm')) {
+      return <Server className="w-3.5 h-3.5 text-blue-600" />;
+    }
+    return <Component className="w-3.5 h-3.5 text-gray-600" />;
   };
 
   const handleLinkClick = (e: React.MouseEvent, url: string) => {
@@ -53,43 +51,36 @@ export const MaterialComponentCard = ({ node, subComponents = [], onClick }: Mat
 
   return (
     <Card 
-      className={`
-        ${isMainComponent ? 'w-80 min-h-[160px]' : 'w-72 min-h-[140px]'}
-        bg-white shadow-md border border-gray-200 
-        hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer
-        ${isMainComponent ? 'ring-2 ring-blue-200' : 'ring-1 ring-gray-200'}
-      `}
+      className={`w-full h-full bg-white/80 backdrop-blur-sm shadow-sm border border-gray-200/60 hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer ring-1 ring-gray-200/30`}
       onClick={() => onClick?.(node.id)}
     >
-      <CardHeader className={`${isMainComponent ? 'pb-3 px-5 pt-4' : 'pb-2 px-4 pt-3'}`}>
+      <CardHeader className="pb-2 px-3 pt-2.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {getIcon()}
-            <h3 className={`font-roboto font-semibold text-gray-800 ${
-              isMainComponent ? 'text-base' : 'text-sm'
-            }`}>
+            <h3 className="font-medium text-gray-800 text-sm">
               {node.name.replace(/"/g, '')}
             </h3>
           </div>
           
           {(node.app_ui_link || node.metrics_ui_link) && (
-            <div className="flex gap-2">
+            <div className="flex gap-0.5">
               {node.app_ui_link && (
                 <button
                   onClick={(e) => handleLinkClick(e, node.app_ui_link!)}
-                  className="p-1.5 hover:bg-blue-50 rounded-md transition-colors"
+                  className="p-1 hover:bg-blue-50 rounded transition-colors"
                   title="Open App UI"
                 >
-                  <ExternalLink className="w-4 h-4 text-blue-600" />
+                  <ExternalLink className="w-3 h-3 text-blue-600" />
                 </button>
               )}
               {node.metrics_ui_link && (
                 <button
                   onClick={(e) => handleLinkClick(e, node.metrics_ui_link!)}
-                  className="p-1.5 hover:bg-purple-50 rounded-md transition-colors"
+                  className="p-1 hover:bg-purple-50 rounded transition-colors"
                   title="Open Metrics UI"
                 >
-                  <BarChart3 className="w-4 h-4 text-purple-600" />
+                  <BarChart3 className="w-3 h-3 text-purple-600" />
                 </button>
               )}
             </div>
@@ -97,101 +88,32 @@ export const MaterialComponentCard = ({ node, subComponents = [], onClick }: Mat
         </div>
       </CardHeader>
       
-      <CardContent className={`${isMainComponent ? 'px-5 pb-4 pt-0' : 'px-4 pb-3 pt-0'}`}>
-        <div className="space-y-3">
-          {evaluatedLabels.slice(0, isMainComponent ? 4 : 3).map((label, index) => (
-            <div key={index} className="flex items-center justify-between">
-              <span className={`font-roboto text-gray-600 ${
-                isMainComponent ? 'text-sm' : 'text-xs'
-              } font-medium`}>
-                {label.label}:
-              </span>
-              <Badge 
-                variant="secondary" 
-                className={`${
-                  isMainComponent ? 'text-xs px-2.5 py-1' : 'text-xs px-2 py-0.5'
-                } bg-gray-100 text-gray-700 font-roboto font-normal max-w-[120px] truncate`}
-                title={String(label.value || 'Loading...')}
-              >
-                {label.value || 'Loading...'}
-              </Badge>
+      <CardContent className="px-3 pb-2.5 pt-0">
+        <div className="flex flex-wrap gap-1.5">
+          {evaluatedLabels.slice(0, 5).map((label, index) => (
+            <div key={index} className="flex items-center rounded-full overflow-hidden border border-gray-200">
+              <div className="bg-blue-100 text-blue-700 px-2 py-1">
+                <span className="text-xs font-medium">
+                  {label.label}
+                </span>
+              </div>
+              <div className="bg-gray-100 text-gray-700 px-2 py-1">
+                <span className="text-xs font-normal max-w-[80px] truncate" title={String(label.value || 'Loading...')}>
+                  {label.value || 'Loading...'}
+                </span>
+              </div>
             </div>
           ))}
           
-          {evaluatedLabels.length > (isMainComponent ? 4 : 3) && (
-            <div className="text-center pt-1">
-              <Badge variant="outline" className="text-xs text-gray-500">
-                +{evaluatedLabels.length - (isMainComponent ? 4 : 3)} more
-              </Badge>
-            </div>
-          )}
-
-          {/* Render sub-components inside the main component */}
-          {isMainComponent && subComponents.length > 0 && (
-            <div className="mt-4">
-              <div className="space-y-2">
-                {subComponents.map((subComponent) => (
-                  <div
-                    key={subComponent.id}
-                    className="bg-gray-50 rounded-md p-2 border border-gray-200 hover:bg-gray-100"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent parent card's onClick
-                      onClick?.(subComponent.id);
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <Component className="w-3 h-3 text-gray-500" />
-                        <span className="text-xs font-medium text-gray-700 font-roboto">
-                          {subComponent.name}
-                        </span>
-                      </div>
-                      {(subComponent.app_ui_link || subComponent.metrics_ui_link) && (
-                        <div className="flex gap-1">
-                          {subComponent.app_ui_link && (
-                            <button
-                              onClick={(e) => handleLinkClick(e, subComponent.app_ui_link!)}
-                              className="p-0.5 hover:bg-blue-50 rounded transition-colors"
-                              title="Open App UI"
-                            >
-                              <ExternalLink className="w-3 h-3 text-blue-600" />
-                            </button>
-                          )}
-                          {subComponent.metrics_ui_link && (
-                            <button
-                              onClick={(e) => handleLinkClick(e, subComponent.metrics_ui_link!)}
-                              className="p-0.5 hover:bg-purple-50 rounded transition-colors"
-                              title="Open Metrics UI"
-                            >
-                              <BarChart3 className="w-3 h-3 text-purple-600" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {subComponent.labels.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {subComponent.labels.slice(0, 2).map((label, index) => (
-                          <Badge
-                            key={index}
-                            variant="outline"
-                            className="text-xs px-1.5 py-0.5 bg-white text-gray-600 font-roboto"
-                          >
-                            {label.label}
-                          </Badge>
-                        ))}
-                        {subComponent.labels.length > 2 && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs px-1.5 py-0.5 bg-white text-gray-500 font-roboto"
-                          >
-                            +{subComponent.labels.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+          {evaluatedLabels.length > 5 && (
+            <div className="flex items-center rounded-full overflow-hidden border border-gray-200">
+              <div className="bg-blue-100 text-blue-700 px-2 py-1">
+                <span className="text-xs font-medium">More</span>
+              </div>
+              <div className="bg-gray-100 text-gray-700 px-2 py-1">
+                <span className="text-xs">
+                  +{evaluatedLabels.length - 5}
+                </span>
               </div>
             </div>
           )}

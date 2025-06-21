@@ -4,6 +4,7 @@ import { ComponentNode, SystemData, ConnectionLine, Position } from '../types/Co
 import { MaterialComponentCard } from './MaterialComponentCard';
 import { MovingConnectionLine } from './MovingConnectionLine';
 import { ComponentInfoDialog } from './ComponentInfoDialog';
+import { ConnectionInfoDialog } from './ConnectionInfoDialog';
 
 interface SystemDashboardProps {
   data: SystemData;
@@ -15,19 +16,33 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
   const [connections, setConnections] = useState<ConnectionLine[]>([]);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [selectedNode, setSelectedNode] = useState<ComponentNode | null>(null);
+  const [selectedConnection, setSelectedConnection] = useState<ConnectionLine | null>(null);
 
   const calculateLayout = () => {
     const containerWidth = canvasRef.current?.clientWidth || 1200;
-    const containerHeight = Math.max(600, data.components.length * 400);
     
-    setCanvasSize({ width: containerWidth, height: containerHeight });
+    // Calculate dynamic height based on components
+    const componentsWithSubs = data.components.filter(c => c.sub_components.length > 0);
+    const componentsWithoutSubs = data.components.filter(c => c.sub_components.length === 0);
+    const totalSubComponents = data.components.reduce((sum, c) => sum + c.sub_components.length, 0);
+    
+    // Dynamic height calculation
+    const minHeight = 600;
+    const componentHeight = 250;
+    const subComponentPadding = totalSubComponents * 30;
+    const calculatedHeight = Math.max(minHeight, data.components.length * componentHeight + subComponentPadding);
+    
+    setCanvasSize({ width: containerWidth, height: calculatedHeight });
 
     const newNodes: ComponentNode[] = [];
     const newConnections: ConnectionLine[] = [];
     
-    // Calculate grid-based layout for better spacing
-    const componentsPerRow = Math.min(3, Math.max(1, Math.floor(containerWidth / 400)));
-    const componentSpacing = { x: containerWidth / componentsPerRow, y: 400 };
+    // Improved layout calculation
+    const componentsPerRow = Math.min(4, Math.max(2, Math.floor(containerWidth / 350)));
+    const componentSpacing = { 
+      x: containerWidth / componentsPerRow, 
+      y: Math.max(300, calculatedHeight / Math.ceil(data.components.length / componentsPerRow))
+    };
     
     data.components.forEach((component, componentIndex) => {
       const row = Math.floor(componentIndex / componentsPerRow);
@@ -36,7 +51,8 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
       const baseX = (col * componentSpacing.x) + (componentSpacing.x / 2);
       const baseY = row * componentSpacing.y + 120;
       
-      // Add main component node
+      // Add main component node with dynamic sizing
+      const hasSubComponents = component.sub_components.length > 0;
       newNodes.push({
         id: component.id,
         name: component.name,
@@ -47,18 +63,18 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
         cosmos_link: component.cosmos_link
       });
 
-      // Add sub-components in a better organized layout
-      const subComponentCount = component.sub_components.length;
-      if (subComponentCount > 0) {
-        const subCompRadius = Math.max(120, subComponentCount * 20);
+      // Add sub-components with better organization
+      if (hasSubComponents) {
+        const subComponentCount = component.sub_components.length;
+        const subCompRadius = Math.max(140, Math.min(200, subComponentCount * 25));
         
         component.sub_components.forEach((subComponent, subIndex) => {
           const angle = (2 * Math.PI * subIndex) / subComponentCount;
           const subX = baseX + subCompRadius * Math.cos(angle);
-          const subY = baseY + 150 + subCompRadius * Math.sin(angle);
+          const subY = baseY + 180 + subCompRadius * Math.sin(angle);
           
           newNodes.push({
-            id: subComponent.id,
+            id: subComponent.id.replace(/"/g, ''),
             name: subComponent.name,
             labels: subComponent.labels,
             position: { x: subX, y: subY },
@@ -71,15 +87,31 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
       }
     });
 
-    // Add connections
+    // Add connections with labels
     data.connections.forEach((connection, index) => {
       const cleanStart = connection.start.replace(/"/g, '');
       const cleanEnd = connection.end.replace(/"/g, '');
       
+      // Generate connection label based on type or pattern
+      let connectionLabel = connection.label;
+      if (!connectionLabel) {
+        if (cleanStart.toLowerCase().includes('kafka') || cleanEnd.toLowerCase().includes('kafka')) {
+          connectionLabel = 'Kafka Queue';
+        } else if (cleanStart.toLowerCase().includes('api') || cleanEnd.toLowerCase().includes('api')) {
+          connectionLabel = 'REST API';
+        } else if (cleanStart.toLowerCase().includes('stream')) {
+          connectionLabel = 'Data Stream';
+        } else {
+          connectionLabel = 'Data Flow';
+        }
+      }
+      
       newConnections.push({
         id: `connection-${index}`,
         source: cleanStart,
-        target: cleanEnd
+        target: cleanEnd,
+        label: connectionLabel,
+        type: connection.type
       });
     });
 
@@ -113,12 +145,16 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
     setSelectedNode(node);
   };
 
+  const handleConnectionClick = (connection: ConnectionLine) => {
+    setSelectedConnection(connection);
+  };
+
   return (
     <>
       <div 
         ref={canvasRef}
         className="relative w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-auto border-2 border-gray-100 rounded-lg"
-        style={{ height: Math.max(600, canvasSize.height + 200) }}
+        style={{ height: Math.max(600, canvasSize.height + 100) }}
       >
         {/* SVG for connections */}
         <svg
@@ -157,27 +193,35 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
                 source={sourcePos}
                 target={targetPos}
                 id={connection.id}
+                label={connection.label}
+                onClick={() => handleConnectionClick(connection)}
               />
             );
           })}
         </svg>
 
-        {/* Component nodes */}
-        {nodes.map(node => (
-          <div
-            key={node.id}
-            className="absolute transition-all duration-300 z-20"
-            style={{
-              left: node.position.x - 140,
-              top: node.position.y - 70,
-            }}
-          >
-            <MaterialComponentCard 
-              node={node} 
-              onClick={() => handleNodeClick(node)}
-            />
-          </div>
-        ))}
+        {/* Component nodes with improved positioning */}
+        {nodes.map(node => {
+          const isMainComponent = node.type === 'component';
+          const cardWidth = isMainComponent ? 160 : 140;
+          const cardHeight = isMainComponent ? 80 : 70;
+          
+          return (
+            <div
+              key={node.id}
+              className="absolute transition-all duration-300 z-20"
+              style={{
+                left: node.position.x - cardWidth,
+                top: node.position.y - cardHeight,
+              }}
+            >
+              <MaterialComponentCard 
+                node={node} 
+                onClick={() => handleNodeClick(node)}
+              />
+            </div>
+          );
+        })}
 
         {data.components.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center z-30">
@@ -194,6 +238,13 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
         node={selectedNode}
         open={!!selectedNode}
         onOpenChange={(open) => !open && setSelectedNode(null)}
+      />
+
+      {/* Connection Info Dialog */}
+      <ConnectionInfoDialog
+        connection={selectedConnection}
+        open={!!selectedConnection}
+        onOpenChange={(open) => !open && setSelectedConnection(null)}
       />
     </>
   );

@@ -94,15 +94,21 @@ export const sampleSystemData: SystemData = {
   "connections": [
     {
       "start": "dci",
-      "end": "bdm"
+      "end": "bdm",
+      "label": "Kafka Stream",
+      "type": "kafka"
     },
     {
       "start": "dcc",
-      "end": "bdm"
+      "end": "bdm",
+      "label": "Data Pipeline",
+      "type": "stream"
     },
     {
       "start": "corrected",
-      "end": "bdm"
+      "end": "bdm",
+      "label": "Batch API",
+      "type": "api"
     }
   ]
 };

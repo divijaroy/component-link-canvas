@@ -25,6 +25,8 @@ export interface Component {
 export interface Connection {
   start: string;
   end: string;
+  label?: string; // New field for connection labels
+  type?: string; // New field for connection type (e.g., "kafka", "http", etc.)
 }
 
 export interface SystemData {
@@ -52,4 +54,6 @@ export interface ConnectionLine {
   id: string;
   source: string;
   target: string;
+  label?: string;
+  type?: string;
 }

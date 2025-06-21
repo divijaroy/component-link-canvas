@@ -1,13 +1,16 @@
 
 import { Position } from '../types/ComponentTypes';
+import { Badge } from '@/components/ui/badge';
 
 interface MovingConnectionLineProps {
   source: Position;
   target: Position;
   id: string;
+  label?: string;
+  onClick?: () => void;
 }
 
-export const MovingConnectionLine = ({ source, target, id }: MovingConnectionLineProps) => {
+export const MovingConnectionLine = ({ source, target, id, label, onClick }: MovingConnectionLineProps) => {
   const midX = (source.x + target.x) / 2;
   const midY = (source.y + target.y) / 2;
   
@@ -56,10 +59,31 @@ export const MovingConnectionLine = ({ source, target, id }: MovingConnectionLin
         stroke="#3b82f6"
         strokeWidth="3"
         fill="none"
-        className={`moving-dash-${id}`}
+        className={`moving-dash-${id} ${onClick ? 'cursor-pointer hover:stroke-blue-600' : ''}`}
         markerEnd="url(#arrowhead)"
         opacity="0.9"
+        onClick={onClick}
+        style={{ pointerEvents: onClick ? 'stroke' : 'none' }}
       />
+      
+      {/* Connection label */}
+      {label && (
+        <foreignObject
+          x={midX - 40}
+          y={midY - 12}
+          width="80"
+          height="24"
+          className={onClick ? 'cursor-pointer' : ''}
+          onClick={onClick}
+        >
+          <Badge 
+            variant="secondary" 
+            className="text-xs bg-white border border-blue-200 text-blue-700 shadow-sm hover:bg-blue-50 transition-colors"
+          >
+            {label}
+          </Badge>
+        </foreignObject>
+      )}
     </g>
   );
 };

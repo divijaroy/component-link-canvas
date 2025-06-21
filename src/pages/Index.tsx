@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { SystemDashboard } from '../components/SystemDashboard';
+import { EnhancedSystemDashboard } from '../components/EnhancedSystemDashboard';
 import { SystemData } from '../types/ComponentTypes';
 import { sampleSystemData } from '../data/sampleData';
 
@@ -20,7 +19,7 @@ const Index = () => {
         </div>
 
         <div className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-          <SystemDashboard data={systemData} />
+          <EnhancedSystemDashboard data={systemData} />
         </div>
       </div>
     </div>

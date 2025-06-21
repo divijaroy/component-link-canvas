@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { ComponentNode, Label } from '../types/ComponentTypes';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -8,10 +7,11 @@ import { LabelEvaluator } from '../services/LabelEvaluator';
 
 interface MaterialComponentCardProps {
   node: ComponentNode;
+  subComponents?: ComponentNode[];
   onClick?: () => void;
 }
 
-export const MaterialComponentCard = ({ node, onClick }: MaterialComponentCardProps) => {
+export const MaterialComponentCard = ({ node, subComponents = [], onClick }: MaterialComponentCardProps) => {
   const [evaluatedLabels, setEvaluatedLabels] = useState<Label[]>(node.labels);
   const isMainComponent = node.type === 'component';
   
@@ -128,6 +128,72 @@ export const MaterialComponentCard = ({ node, onClick }: MaterialComponentCardPr
               <Badge variant="outline" className="text-xs text-gray-500">
                 +{evaluatedLabels.length - (isMainComponent ? 4 : 3)} more
               </Badge>
+            </div>
+          )}
+
+          {/* Render sub-components inside the main component */}
+          {isMainComponent && subComponents.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <div className="space-y-2">
+                {subComponents.map((subComponent) => (
+                  <div
+                    key={subComponent.id}
+                    className="bg-gray-50 rounded-md p-2 border border-gray-200"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <Component className="w-3 h-3 text-gray-500" />
+                        <span className="text-xs font-medium text-gray-700 font-roboto">
+                          {subComponent.name}
+                        </span>
+                      </div>
+                      {(subComponent.app_ui_link || subComponent.cosmos_link) && (
+                        <div className="flex gap-1">
+                          {subComponent.app_ui_link && (
+                            <button
+                              onClick={(e) => handleLinkClick(e, subComponent.app_ui_link!)}
+                              className="p-0.5 hover:bg-blue-50 rounded transition-colors"
+                              title="Open App UI"
+                            >
+                              <ExternalLink className="w-3 h-3 text-blue-600" />
+                            </button>
+                          )}
+                          {subComponent.cosmos_link && (
+                            <button
+                              onClick={(e) => handleLinkClick(e, subComponent.cosmos_link!)}
+                              className="p-0.5 hover:bg-purple-50 rounded transition-colors"
+                              title="Open Cosmos"
+                            >
+                              <Database className="w-3 h-3 text-purple-600" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {subComponent.labels.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {subComponent.labels.slice(0, 2).map((label, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs px-1.5 py-0.5 bg-white text-gray-600 font-roboto"
+                          >
+                            {label.label}
+                          </Badge>
+                        ))}
+                        {subComponent.labels.length > 2 && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs px-1.5 py-0.5 bg-white text-gray-500 font-roboto"
+                          >
+                            +{subComponent.labels.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

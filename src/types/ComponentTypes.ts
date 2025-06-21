@@ -1,4 +1,3 @@
-
 export interface Label {
   label: string;
   evaluator: string;
@@ -56,4 +55,17 @@ export interface ConnectionLine {
   target: string;
   label?: string;
   type?: string;
+}
+
+export interface ComponentGroup {
+  id: string;
+  name: string;
+  mainComponent: ComponentNode;
+  subComponents: ComponentNode[];
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }

@@ -1,19 +1,35 @@
 
+export interface Label {
+  label: string;
+  evaluator: string;
+  value?: any; // Dynamic value from evaluation
+}
+
 export interface SubComponent {
   id: string;
   name: string;
-  tags: string[];
-  description?: string;
-  connections?: string[];
+  labels: Label[];
+  app_ui_link?: string;
+  cosmos_link?: string;
 }
 
-export interface ComponentData {
+export interface Component {
   id: string;
   name: string;
-  tags: string[];
-  description?: string;
-  subComponents: SubComponent[];
-  connections?: string[];
+  sub_components: SubComponent[];
+  labels: Label[];
+  app_ui_link?: string;
+  cosmos_link?: string;
+}
+
+export interface Connection {
+  start: string;
+  end: string;
+}
+
+export interface SystemData {
+  components: Component[];
+  connections: Connection[];
 }
 
 export interface Position {
@@ -24,14 +40,15 @@ export interface Position {
 export interface ComponentNode {
   id: string;
   name: string;
-  tags: string[];
+  labels: Label[];
   position: Position;
   type: 'component' | 'subcomponent';
   parentId?: string;
-  description?: string;
+  app_ui_link?: string;
+  cosmos_link?: string;
 }
 
-export interface Connection {
+export interface ConnectionLine {
   id: string;
   source: string;
   target: string;

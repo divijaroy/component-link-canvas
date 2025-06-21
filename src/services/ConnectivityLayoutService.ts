@@ -4,7 +4,7 @@ export class ConnectivityLayoutService {
   private static readonly CANVAS_WIDTH = 2000;
   private static readonly CANVAS_HEIGHT = 1200;
   private static readonly COMPONENT_SPACING = 300;
-  private static readonly SUBCOMPONENT_OFFSET = 50;
+  private static readonly SUBCOMPONENT_OFFSET = 200;
 
   /**
    * Convert system data to nodes and connections

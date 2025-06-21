@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SystemData, ComponentNode, ConnectionLine } from '../types/ComponentTypes';
+import { SystemData, ComponentNode, ConnectionLine, Position } from '../types/ComponentTypes';
 import { MaterialComponentCard } from './MaterialComponentCard';
 import { MovingConnectionLine } from './MovingConnectionLine';
 import { ConnectivityLayoutService } from '../services/ConnectivityLayoutService';
-import { ConnectionRoutingService } from '../services/ConnectionRoutingService';
 import { sampleSystemData } from '../data/sampleData';
 
 interface EnhancedSystemDashboardProps {
@@ -30,43 +29,48 @@ export const EnhancedSystemDashboard: React.FC<EnhancedSystemDashboardProps> = (
   const [connections, setConnections] = useState<ConnectionLine[]>([]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [diagramOffset, setDiagramOffset] = useState<{x: number, y: number}>({x: 0, y: 0});
+  
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    console.log('Processing system data:', data);
-    
-    // Process the system data to extract nodes and connections
     const { nodes: processedNodes, connections: processedConnections } = 
       ConnectivityLayoutService.processSystemData(data);
-    
-    console.log('Processed nodes:', processedNodes);
-    console.log('Processed connections:', processedConnections);
-    
-    // Calculate positions for all nodes
     const positionedNodes = ConnectivityLayoutService.calculatePositions(processedNodes, processedConnections);
-    
     setNodes(positionedNodes);
     setConnections(processedConnections);
-    
-    console.log('Final nodes with positions:', positionedNodes);
   }, [data]);
 
-  // Center the diagram after nodes are positioned
+  // Calculate canvas size and view offset
   useEffect(() => {
-    if (!containerRef.current || nodes.length === 0) return;
+    if (nodes.length === 0) return;
+    
+    const PADDING = 150; // Padding around the diagram
     const { minX, minY, maxX, maxY } = getDiagramBoundingBox(nodes);
+    
     const diagramWidth = maxX - minX;
     const diagramHeight = maxY - minY;
-    const containerWidth = containerRef.current.clientWidth;
-    const containerHeight = containerRef.current.clientHeight;
-    const offsetX = containerWidth / 2 - (minX + diagramWidth / 2);
-    const offsetY = containerHeight / 2 - (minY + diagramHeight / 2);
-    setDiagramOffset({ x: offsetX, y: offsetY });
+
+    setCanvasSize({
+      width: diagramWidth + PADDING * 2,
+      height: diagramHeight + PADDING * 2,
+    });
+
+    // This offset translates world coordinates to be positioned correctly within the canvas
+    setViewOffset({
+      x: -minX + PADDING,
+      y: -minY + PADDING
+    });
   }, [nodes]);
 
-  const handleNodeClick = (nodeId: string) => {
-    setSelectedNode(selectedNode === nodeId ? null : nodeId);
-  };
+  // Center the view on load/update
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container && canvasSize.width > 0) {
+      container.scrollLeft = (canvasSize.width - container.clientWidth) / 2;
+      container.scrollTop = (canvasSize.height - container.clientHeight) / 2;
+    }
+  }, [canvasSize]);
 
   const getSubComponents = (parentId: string): ComponentNode[] => {
     return nodes.filter(node => node.parentId === parentId);
@@ -79,102 +83,101 @@ export const EnhancedSystemDashboard: React.FC<EnhancedSystemDashboardProps> = (
   return (
     <div 
       ref={containerRef}
-      className="relative w-full h-screen bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden"
+      className="relative w-full h-screen bg-gradient-to-br from-slate-50 to-slate-100 overflow-auto"
       style={{ minHeight: '800px' }}
     >
-      {/* Connection Lines and Component Cards in a centered group */}
-      <div
+      <div 
+        className="relative"
         style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none',
+          width: canvasSize.width,
+          height: canvasSize.height,
         }}
       >
         <svg
           className="absolute inset-0 w-full h-full"
           style={{ zIndex: 1, pointerEvents: 'none' }}
         >
-          <g transform={`translate(${diagramOffset.x},${diagramOffset.y})`}>
+          <g transform={`translate(${viewOffset.x},${viewOffset.y})`}>
             {connections.map(connection => {
               const sourceNode = nodes.find(node => node.id === connection.source);
               const targetNode = nodes.find(node => node.id === connection.target);
               if (!sourceNode || !targetNode) return null;
+              
+              const getComponentDimensions = (node: ComponentNode) => node.type === 'component'
+                  ? { width: 320, height: 160 }
+                  : { width: 288, height: 140 };
+
+              const getConnectionSourceInfo = (node: ComponentNode) => {
+                if (node.type === 'subcomponent' && node.parentId) {
+                  const parentNode = nodes.find(n => n.id === node.parentId);
+                  if (parentNode) {
+                    const siblings = nodes.filter(n => n.parentId === node.parentId);
+                    const subIndex = siblings.findIndex(n => n.id === node.id);
+                    const verticalSpacing = 40;
+                    const totalHeight = (siblings.length - 1) * verticalSpacing;
+                    const offset = (subIndex * verticalSpacing) - (totalHeight / 2);
+                    return { position: parentNode.position, isSubComponent: true, verticalOffset: offset };
+                  }
+                }
+                return { position: node.position, isSubComponent: false, verticalOffset: 0 };
+              };
+
+              const sourceInfo = getConnectionSourceInfo(sourceNode);
+              const sourceDimensions = getComponentDimensions(sourceNode);
+              const targetDimensions = getComponentDimensions(targetNode);
+              
               return (
                 <MovingConnectionLine
                   key={connection.id}
                   id={connection.id}
-                  source={{
-                    x: sourceNode.position.x,
-                    y: sourceNode.position.y
-                  }}
-                  target={{
-                    x: targetNode.position.x,
-                    y: targetNode.position.y
-                  }}
+                  source={sourceInfo.position}
+                  target={targetNode.position}
                   label={connection.label}
+                  sourceWidth={sourceDimensions.width}
+                  sourceHeight={sourceDimensions.height}
+                  targetWidth={targetDimensions.width}
+                  targetHeight={targetDimensions.height}
+                  offset={connections.indexOf(connection) * 15}
+                  isSubComponent={sourceInfo.isSubComponent}
+                  verticalOffset={sourceInfo.verticalOffset}
                 />
               );
             })}
           </g>
         </svg>
-        <div
-          className="absolute left-0 top-0 w-full h-full"
-          style={{ zIndex: 2, pointerEvents: 'none' }}
+        <div 
+          className="absolute inset-0"
+          style={{ 
+            transform: `translate(${viewOffset.x}px, ${viewOffset.y}px)`,
+            pointerEvents: 'auto',
+            zIndex: 2 
+          }}
         >
-          <div
-            style={{
-              position: 'absolute',
-              left: diagramOffset.x,
-              top: diagramOffset.y,
-              pointerEvents: 'auto',
-            }}
-          >
-            {getMainComponents().map(mainComponent => {
-              const subComponents = getSubComponents(mainComponent.id);
-              return (
-                <div
-                  key={mainComponent.id}
-                  className="absolute"
-                  style={{
-                    left: mainComponent.position.x,
-                    top: mainComponent.position.y,
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                >
-                  <MaterialComponentCard
-                    node={mainComponent}
-                    subComponents={subComponents}
-                    onClick={() => handleNodeClick(mainComponent.id)}
-                  />
-                </div>
-              );
-            })}
-            {nodes
-              .filter(node => node.type === 'subcomponent' && !node.parentId)
-              .map(subComponent => (
-                <div
-                  key={subComponent.id}
-                  className="absolute"
-                  style={{
-                    left: subComponent.position.x,
-                    top: subComponent.position.y,
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                >
-                  <MaterialComponentCard
-                    node={subComponent}
-                    onClick={() => handleNodeClick(subComponent.id)}
-                  />
-                </div>
-              ))}
-          </div>
+          {nodes.map(node => (
+            <div
+              key={node.id}
+              className="absolute"
+              style={{
+                left: node.position.x,
+                top: node.position.y,
+                transform: 'translate(-50%, -50%)',
+                // Only render main components and standalone sub-components directly.
+                // Nested sub-components are rendered inside their parents.
+                display: node.type === 'subcomponent' && node.parentId ? 'none' : 'block'
+              }}
+            >
+              <MaterialComponentCard
+                node={node}
+                subComponents={node.type === 'component' ? getSubComponents(node.id) : []}
+                onClick={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
+              />
+            </div>
+          ))}
         </div>
       </div>
+
       {/* Debug Info */}
-      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-4 shadow-lg">
+      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-4 shadow-lg z-10">
         <h3 className="font-semibold text-gray-800 mb-2">System Overview</h3>
         <div className="text-sm text-gray-600 space-y-1">
           <div>Main Components: {getMainComponents().length}</div>

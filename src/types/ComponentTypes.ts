@@ -6,6 +6,11 @@ export interface Label {
 export interface Component {
   id: string;
   name: string;
+  type: string;
+  parentId?: string;
+  owner?: string;
+  description?: string;
+  tags?: string[];
   components: (Component | string)[]; // Nested components or empty strings
   labels: Label[];
   app_ui_link?: string;
@@ -35,6 +40,7 @@ export interface ComponentNode {
   app_ui_link?: string;
   metrics_ui_link?: string;
   connections: string[];
+  nodeType: 'parent' | 'leaf';
 }
 
 export interface ConnectionLine {
@@ -57,4 +63,18 @@ export interface ComponentGroup {
     width: number;
     height: number;
   };
+}
+
+export interface Connection {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+}
+
+export interface Layout {
+  nodes: any[];
+  edges: any[];
+  width?: number;
+  height?: number;
 }

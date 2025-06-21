@@ -1,195 +1,273 @@
-import ELK from 'elkjs/lib/elk.bundled.js';
-import { SystemData, Component, ComponentNode, Position, ConnectionLine } from '../types/ComponentTypes';
-
-const PADDING = 20;
-const CARD_HEADER_HEIGHT = 50;
-const CARD_LABEL_HEIGHT = 20;
+import ELK, { ElkNode, ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js';
+import { Component, Connection, Layout } from '../types/ComponentTypes';
 
 const elk = new ELK();
 
-export class ConnectivityLayoutService {
+const DEFAULT_WIDTH = 300;
+const PARENT_PADDING_TOP = 50; // Extra space for the parent title
+const PARENT_PADDING_SIDES = 20;
 
-  static async processAndLayout(data: SystemData): Promise<{ nodes: ComponentNode[], connections: ConnectionLine[] }> {
-    const connectionIdCounter = { value: 0 };
-    
-    const { nodes, connections: originalConnections } = this.createFlatNodeList(data, connectionIdCounter);
-    this.calculateNodeSizes(nodes);
-    const elkGraph = this.buildElkHierarchy(nodes, originalConnections);
-    const layout = await elk.layout(elkGraph);
-    
-    const laidOutNodes: ComponentNode[] = [];
-    this.applyElkLayout(layout, nodes, laidOutNodes);
+// Constants for flexible height calculation (approximating MaterialComponentCard layout)
+const CARD_HEADER_HEIGHT = 32;
+const CAPSULE_HEIGHT = 24; // Approximated height of a label capsule
+const CAPSULES_PER_ROW = 3; // How many capsules fit horizontally before wrapping
+const CAPSULE_V_SPACING = 4; // gap-1 from tailwind
+const CARD_CONTENT_PADDING_Y = 8; // py-2 for card content
 
-    // After nodes are positioned, extract the edge routes from the layout
-    const routedConnections = this.extractEdgeRoutes(layout, originalConnections);
-
-    return { nodes: laidOutNodes, connections: routedConnections };
+// Simple hash function to create a unique key for the data
+const createDataHash = (components: Component[], connections: Connection[]): string => {
+  const dataString = JSON.stringify({
+    components: components.map(c => ({ id: c.id, name: c.name, parentId: c.parentId })),
+    connections: connections.map(c => ({ source: c.source, target: c.target }))
+  });
+  
+  // Simple hash function
+  let hash = 0;
+  for (let i = 0; i < dataString.length; i++) {
+    const char = dataString.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
   }
+  return hash.toString();
+};
 
-  private static createFlatNodeList(data: SystemData, connectionIdCounter: { value: number }) {
-    const nodes: ComponentNode[] = [];
-    const connections: ConnectionLine[] = [];
-    
-    function traverse(components: (Component | string)[], parentId?: string, level: number = 0) {
-      components.forEach(comp => {
-        if (typeof comp === 'string' || !comp.id) return;
-        
-        // Create a node for every component, regardless of whether it has connections
-        const node: ComponentNode = {
-          id: comp.id, name: comp.name, labels: comp.labels,
-          connections: comp.connections, parentId, level,
-          type: level === 0 ? 'component' : 'subcomponent',
-          app_ui_link: comp.app_ui_link, metrics_ui_link: comp.metrics_ui_link,
-          position: { x: 0, y: 0 }, width: 320, height: 100, // Default sizes
-        };
-        nodes.push(node);
-        
-        // Only create connections if the component has connections defined
-        if (comp.connections && comp.connections.length > 0) {
-          comp.connections.forEach(targetId => {
-            connections.push({
-              id: `conn-${connectionIdCounter.value++}`, source: comp.id, target: targetId,
-              label: `Data Flow`, type: 'stream'
-            });
-          });
-        }
+// Cache key for localStorage
+const CACHE_KEY = 'component-layout-cache';
 
-        // Recursively process nested components
-        if (comp.components && comp.components.length > 0) {
-          traverse(comp.components, comp.id, level + 1);
-        }
-      });
+// Function to clear the layout cache
+export const clearLayoutCache = (): void => {
+  try {
+    // Clear all layout cache entries
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(CACHE_KEY)) {
+        keysToRemove.push(key);
+      }
     }
-    traverse(data.components);
-    return { nodes, connections };
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    console.log('Layout cache cleared successfully');
+  } catch (error) {
+    console.warn('Failed to clear layout cache:', error);
+  }
+};
+
+const calculateLeafNodeHeight = (component: Component): number => {
+  const labelCount = Math.min(component.labels?.length || 0, 5); // Capped at 5 displayed labels
+  if (labelCount === 0) {
+    return CARD_HEADER_HEIGHT + CARD_CONTENT_PADDING_Y * 2; // Base height with padding
   }
 
-  private static calculateNodeSizes(nodes: ComponentNode[]) {
-    // Calculate dynamic heights based on the number of labels
-    for (const node of nodes) {
-      node.width = 320;
-      
-      // Calculate height based on number of labels (capped at 5)
-      const labelCount = Math.min(node.labels.length, 5);
-      
-      // Base height: header (32px) + content padding (12px) + capsule layout
-      let baseHeight = 44; // 32px header + 12px padding
-      
-      if (labelCount > 0) {
-        // Capsule design: each row can fit ~2-3 capsules depending on width
-        // Each capsule is ~24px tall, with 6px gap
-        const capsulesPerRow = 2; // Conservative estimate
-        const rows = Math.ceil(labelCount / capsulesPerRow);
-        const capsuleHeight = 24; // height of each capsule
-        const rowGap = 6;
+  const rows = Math.ceil(labelCount / CAPSULES_PER_ROW);
+  let height = CARD_HEADER_HEIGHT;
+  height += rows * CAPSULE_HEIGHT;
+  if (rows > 1) {
+    height += (rows - 1) * CAPSULE_V_SPACING;
+  }
+  height += CARD_CONTENT_PADDING_Y * 2; // Vertical padding for content area
+
+  // Add extra space for the "+X more" label if needed
+  if ((component.labels?.length || 0) > 5) {
+      height += CAPSULE_HEIGHT + CAPSULE_V_SPACING;
+  }
+
+  return Math.max(height, 80); // Ensure a minimum height
+};
+
+export const generateLayout = async (
+  components: Component[],
+  connections: Connection[],
+  showConnections: boolean
+): Promise<Layout> => {
+  // Create a hash of the input data
+  const dataHash = createDataHash(components, connections);
+  const cacheKey = `${CACHE_KEY}-${dataHash}`;
+  
+  // Try to get cached layout
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsedCache = JSON.parse(cached);
+      // Verify the cache is still valid (has all required properties)
+      if (parsedCache.nodes && parsedCache.edges && parsedCache.width !== undefined) {
+        console.log('Using cached layout');
+        return parsedCache;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load cached layout:', error);
+  }
+
+  // If no cache or invalid cache, calculate new layout
+  console.log('Calculating new layout');
+  
+  const elkNodesMap = new Map<string, ElkNode>();
+  const rootChildren: ElkNode[] = [];
+
+  // Create all node objects and store them in a map
+  for (const component of components) {
+    const isParent = components.some((c) => c.parentId === component.id);
+
+    const elkNode: ElkNode = {
+      id: component.id,
+      width: DEFAULT_WIDTH,
+      children: [],
+      layoutOptions: {},
+    };
+
+    if (isParent) {
+      // For parents, we don't set a height. We let ELK determine it.
+      // We set padding to ensure children are not on top of the title.
+      elkNode.layoutOptions = {
+        'elk.padding': `[top=${PARENT_PADDING_TOP},left=${PARENT_PADDING_SIDES},bottom=${PARENT_PADDING_SIDES},right=${PARENT_PADDING_SIDES}]`,
+        'elk.hierarchyHandling': 'INCLUDE_CHILDREN', // Critical for auto-sizing
+      };
+    } else {
+      // For leaf nodes, we calculate the height based on content.
+      elkNode.height = calculateLeafNodeHeight(component);
+    }
+    
+    elkNodesMap.set(component.id, elkNode);
+  }
+
+  // A map to easily access original component data
+  const componentsMap = new Map<string, Component>(components.map(c => [c.id, c]));
+
+  // Build the hierarchy
+  for (const component of components) {
+    const elkNode = elkNodesMap.get(component.id);
+    if (!elkNode) continue;
+
+    if (component.parentId && elkNodesMap.has(component.parentId)) {
+      const parentElkNode = elkNodesMap.get(component.parentId);
+      parentElkNode?.children?.push(elkNode);
+    } else {
+      rootChildren.push(elkNode);
+    }
+  }
+
+  const elkEdges: ElkExtendedEdge[] = showConnections
+    ? connections.map((connection) => ({
+        id: connection.id,
+        sources: [connection.source],
+        targets: [connection.target],
+      }))
+    : [];
+
+  const graph: ElkNode = {
+    id: 'root',
+    layoutOptions: {
+      'elk.algorithm': 'layered',
+      'elk.direction': 'DOWN',
+      'elk.spacing.nodeNode': '150',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '150',
+      'elk.edgeRouting': 'ORTHOGONAL',
+      'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+    },
+    children: rootChildren,
+    edges: elkEdges,
+  };
+
+  try {
+    const layout = await elk.layout(graph);
+    
+    const flattenNodes = (nodes: ElkNode[], parentX = 0, parentY = 0): ElkNode[] => {
+      let flat: ElkNode[] = [];
+      for (const node of nodes) {
+        // Adjust position to be absolute
+        node.x = (node.x ?? 0) + parentX;
+        node.y = (node.y ?? 0) + parentY;
         
-        const labelHeight = rows * capsuleHeight + (rows - 1) * rowGap;
-        baseHeight += labelHeight;
-        
-        // Add extra space for "more" indicator if there are more than 5 labels
-        if (node.labels.length > 5) {
-          baseHeight += 24; // Space for "+X more" capsule
+        const children = node.children;
+        // The node itself is pushed onto the flat list
+        flat.push({ ...node, children: undefined }); 
+
+        if (children && children.length > 0) {
+          // Recurse for children, passing the parent's absolute position
+          flat = flat.concat(flattenNodes(children, node.x, node.y));
         }
       }
-      
-      // Ensure minimum height for all components
-      node.height = Math.max(baseHeight, 80);
-    }
-  }
-
-  private static buildElkHierarchy(nodes: ComponentNode[], connections: ConnectionLine[]) {
-    const elkNodeMap = new Map();
-    nodes.forEach(n => {
-        elkNodeMap.set(n.id, {
-            id: n.id, width: n.width, height: n.height, children: [],
-            layoutOptions: { 'elk.padding.top': '60', 'elk.padding.left': '20', 'elk.padding.bottom': '20', 'elk.padding.right': '20' }
-        });
-    });
-
-    const rootElkNodes: any[] = [];
-    nodes.forEach(n => {
-        if (n.parentId && elkNodeMap.has(n.parentId)) {
-            elkNodeMap.get(n.parentId).children.push(elkNodeMap.get(n.id));
-        } else {
-            rootElkNodes.push(elkNodeMap.get(n.id));
-        }
-    });
-
-    return {
-      id: 'root',
-      layoutOptions: { 
-        'elk.algorithm': 'layered',
-        'elk.direction': 'RIGHT',
-        'elk.spacing.nodeNode': '80',
-        'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
-        'elk.edgeRouting': 'ORTHOGONAL',
-      },
-      children: rootElkNodes,
-      edges: connections.map(c => ({ id: c.id, sources: [c.source], targets: [c.target] })),
+      return flat;
     };
-  }
+    
+    const finalNodes = flattenNodes(layout.children || []);
 
-  private static applyElkLayout(layout: any, originalNodes: ComponentNode[], laidOutNodes: ComponentNode[]) {
-    if (!layout.children) return;
-
-    function applyRecursively(elkChildren: any[], parentX = 0, parentY = 0) {
-      for (const elkNode of elkChildren) {
-        const absoluteX = (elkNode.x || 0) + parentX;
-        const absoluteY = (elkNode.y || 0) + parentY;
-
-        const originalNode = originalNodes.find(n => n.id === elkNode.id);
-        if (originalNode) {
-          const newNode: ComponentNode = {
-            ...originalNode,
-            position: {
-              x: absoluteX + elkNode.width / 2,
-              y: absoluteY + elkNode.height / 2,
-            },
-            width: elkNode.width,
-            height: elkNode.height,
+    const finalEdges = (layout.edges || []).map(edge => {
+      const originalEdge = connections.find(c => c.id === edge.id);
+      
+      // If ELK didn't provide sections, create a simple orthogonal path
+      let path = null;
+      if (edge.sections && edge.sections.length > 0) {
+        path = edge.sections[0];
+      } else {
+        // Find source and target nodes to create an orthogonal path
+        const sourceNode = finalNodes.find(n => n.id === edge.sources[0]);
+        const targetNode = finalNodes.find(n => n.id === edge.targets[0]);
+        if (sourceNode && targetNode) {
+          const sourceX = sourceNode.x + (sourceNode.width || 0) / 2;
+          const sourceY = sourceNode.y + (sourceNode.height || 0) / 2;
+          const targetX = targetNode.x + (targetNode.width || 0) / 2;
+          const targetY = targetNode.y + (targetNode.height || 0) / 2;
+          
+          // Simple orthogonal path with one bend point
+          const midX = sourceX;
+          const midY = targetY;
+          
+          path = {
+            startPoint: { x: sourceX, y: sourceY },
+            endPoint: { x: targetX, y: targetY },
+            bendPoints: [
+              { x: midX, y: midY }
+            ]
           };
-          laidOutNodes.push(newNode);
-        }
-
-        if (elkNode.children) {
-          applyRecursively(elkNode.children, absoluteX, absoluteY);
         }
       }
-    }
-
-    applyRecursively(layout.children);
-  }
-
-  private static extractEdgeRoutes(layout: any, originalConnections: ConnectionLine[]): ConnectionLine[] {
-    const newConnections: ConnectionLine[] = [];
-    if (!layout.edges) return originalConnections;
-
-    layout.edges.forEach((elkEdge: any) => {
-      const original = originalConnections.find(c => c.id === elkEdge.id);
-      if (original) {
-        const points: Position[] = [];
-        (elkEdge.sections || []).forEach((section: any) => {
-          points.push({ x: section.startPoint.x, y: section.startPoint.y });
-          (section.bendPoints || []).forEach((bp: any) => {
-            points.push({ x: bp.x, y: bp.y });
-          });
-          points.push({ x: section.endPoint.x, y: section.endPoint.y });
-        });
-        
-        // Add the routed path to the connection object
-        newConnections.push({ ...original, path: points });
-      }
+      
+      return {
+        ...edge,
+        id: edge.id,
+        source: edge.sources[0],
+        target: edge.targets[0],
+        label: originalEdge?.label,
+        sections: path ? [path] : undefined,
+      };
     });
 
-    return newConnections;
-  }
+    const enrichedNodes = finalNodes.map(node => {
+      const originalComponent = componentsMap.get(node.id);
+      if (!originalComponent) {
+        return {
+          ...node,
+          id: node.id,
+          isParent: (node.children?.length ?? 0) > 0,
+        };
+      }
+      const isParent = components.some(c => c.parentId === originalComponent.id);
+      return {
+        ...originalComponent,
+        ...node,
+        isParent: isParent,
+      };
+    });
 
-  static getComponentBoundingBox(node: ComponentNode): { x: number; y: number; width: number; height: number; } {
-    return {
-      x: node.position.x - node.width / 2,
-      y: node.position.y - node.height / 2,
-      width: node.width,
-      height: node.height,
+    const result = {
+      nodes: enrichedNodes,
+      edges: finalEdges,
+      width: layout.width,
+      height: layout.height,
     };
+
+    // Cache the result
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(result));
+      console.log('Layout cached successfully');
+    } catch (error) {
+      console.warn('Failed to cache layout:', error);
+    }
+
+    return result;
+  } catch (e) {
+    console.error('Error during layout calculation:', e);
+    throw e;
   }
-} 
+}; 

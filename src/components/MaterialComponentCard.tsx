@@ -54,9 +54,9 @@ export const MaterialComponentCard = ({ node, onClick }: MaterialComponentCardPr
       className={`w-full h-full bg-white/80 backdrop-blur-sm shadow-sm border border-gray-200/60 hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer ring-1 ring-gray-200/30`}
       onClick={() => onClick?.(node.id)}
     >
-      <CardHeader className="pb-2 px-3 pt-2.5">
+      <CardHeader className="pb-1.5 px-2.5 pt-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {getIcon()}
             <h3 className="font-medium text-gray-800 text-sm">
               {node.name.replace(/"/g, '')}
@@ -68,7 +68,7 @@ export const MaterialComponentCard = ({ node, onClick }: MaterialComponentCardPr
               {node.app_ui_link && (
                 <button
                   onClick={(e) => handleLinkClick(e, node.app_ui_link!)}
-                  className="p-1 hover:bg-blue-50 rounded transition-colors"
+                  className="p-0.5 hover:bg-blue-50 rounded transition-colors"
                   title="Open App UI"
                 >
                   <ExternalLink className="w-3 h-3 text-blue-600" />
@@ -77,7 +77,7 @@ export const MaterialComponentCard = ({ node, onClick }: MaterialComponentCardPr
               {node.metrics_ui_link && (
                 <button
                   onClick={(e) => handleLinkClick(e, node.metrics_ui_link!)}
-                  className="p-1 hover:bg-purple-50 rounded transition-colors"
+                  className="p-0.5 hover:bg-purple-50 rounded transition-colors"
                   title="Open Metrics UI"
                 >
                   <BarChart3 className="w-3 h-3 text-purple-600" />
@@ -88,16 +88,16 @@ export const MaterialComponentCard = ({ node, onClick }: MaterialComponentCardPr
         </div>
       </CardHeader>
       
-      <CardContent className="px-3 pb-2.5 pt-0">
-        <div className="flex flex-wrap gap-1.5">
+      <CardContent className="px-2.5 pb-2 pt-0">
+        <div className="flex flex-wrap gap-1">
           {evaluatedLabels.slice(0, 5).map((label, index) => (
             <div key={index} className="flex items-center rounded-full overflow-hidden border border-gray-200">
-              <div className="bg-blue-100 text-blue-700 px-2 py-1">
+              <div className="bg-blue-100 text-blue-700 px-1.5 py-0.5">
                 <span className="text-xs font-medium">
                   {label.label}
                 </span>
               </div>
-              <div className="bg-gray-100 text-gray-700 px-2 py-1">
+              <div className="bg-gray-100 text-gray-700 px-1.5 py-0.5">
                 <span className="text-xs font-normal max-w-[80px] truncate" title={String(label.value || 'Loading...')}>
                   {label.value || 'Loading...'}
                 </span>
@@ -107,10 +107,10 @@ export const MaterialComponentCard = ({ node, onClick }: MaterialComponentCardPr
           
           {evaluatedLabels.length > 5 && (
             <div className="flex items-center rounded-full overflow-hidden border border-gray-200">
-              <div className="bg-blue-100 text-blue-700 px-2 py-1">
+              <div className="bg-blue-100 text-blue-700 px-1.5 py-0.5">
                 <span className="text-xs font-medium">More</span>
               </div>
-              <div className="bg-gray-100 text-gray-700 px-2 py-1">
+              <div className="bg-gray-100 text-gray-700 px-1.5 py-0.5">
                 <span className="text-xs">
                   +{evaluatedLabels.length - 5}
                 </span>

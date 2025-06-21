@@ -1,11 +1,10 @@
-import { ComponentNode } from '../types/ComponentTypes';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Database, Server, Component, Zap, Clock } from 'lucide-react';
 
 interface ComponentInfoDialogProps {
-  node: ComponentNode | null;
+  node: any | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -14,7 +13,7 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
   if (!node) return null;
 
   const getIcon = () => {
-    if (node.type === 'component') {
+    if (node.isParent) {
       return <Server className="w-6 h-6 text-blue-600" />;
     }
     
@@ -46,7 +45,7 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
                 {node.name}
               </div>
               <div className="text-sm text-gray-500 font-normal">
-                {node.type === 'component' ? 'Main Component' : 'Sub Component'}
+                {node.isParent ? 'Component Group' : 'Component'}
               </div>
             </div>
           </DialogTitle>
@@ -54,11 +53,11 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
 
         <div className="space-y-4">
           {/* Labels Section */}
-          {node.labels.length > 0 && (
+          {node.labels && node.labels.length > 0 && (
             <div>
               <h3 className="font-roboto font-medium text-gray-700 mb-2">Labels</h3>
               <div className="space-y-2">
-                {node.labels.map((label, index) => (
+                {node.labels.map((label: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                     <span className="font-roboto text-sm text-gray-600 font-medium">
                       {label.label}:
@@ -73,7 +72,7 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
           )}
 
           {/* Links Section */}
-          {(node.app_ui_link || node.cosmos_link) && (
+          {(node.app_ui_link) && (
             <div>
               <h3 className="font-roboto font-medium text-gray-700 mb-2">Quick Links</h3>
               <div className="space-y-2">
@@ -86,17 +85,6 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Open App UI
-                  </Button>
-                )}
-                {node.cosmos_link && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleLinkClick(node.cosmos_link!)}
-                    className="w-full justify-start"
-                  >
-                    <Database className="w-4 h-4 mr-2" />
-                    Open Cosmos
                   </Button>
                 )}
               </div>

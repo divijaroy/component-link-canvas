@@ -1,6 +1,6 @@
 
 import { Position } from '../types/ComponentTypes';
-import { Badge } from '@/components/ui/badge';
+import { Info } from 'lucide-react';
 
 interface MovingConnectionLineProps {
   source: Position;
@@ -14,13 +14,8 @@ export const MovingConnectionLine = ({ source, target, id, label, onClick }: Mov
   const midX = (source.x + target.x) / 2;
   const midY = (source.y + target.y) / 2;
   
-  // Create a smooth curve with better control points
-  const controlPoint1X = source.x + (midX - source.x) * 0.6;
-  const controlPoint1Y = source.y + 20;
-  const controlPoint2X = target.x - (target.x - midX) * 0.6;
-  const controlPoint2Y = target.y - 20;
-
-  const pathData = `M ${source.x} ${source.y} C ${controlPoint1X} ${controlPoint1Y}, ${controlPoint2X} ${controlPoint2Y}, ${target.x} ${target.y}`;
+  // Create a more visible rectangular path
+  const pathData = `M ${source.x} ${source.y} L ${midX} ${source.y} L ${midX} ${target.y} L ${target.x} ${target.y}`;
 
   return (
     <g>
@@ -28,8 +23,8 @@ export const MovingConnectionLine = ({ source, target, id, label, onClick }: Mov
         <style>
           {`
             .moving-dash-${id} {
-              stroke-dasharray: 10 6;
-              animation: dash-move-${id} 3s linear infinite;
+              stroke-dasharray: 8 4;
+              animation: dash-move-${id} 2s linear infinite;
             }
             
             @keyframes dash-move-${id} {
@@ -37,7 +32,7 @@ export const MovingConnectionLine = ({ source, target, id, label, onClick }: Mov
                 stroke-dashoffset: 0;
               }
               to {
-                stroke-dashoffset: 16;
+                stroke-dashoffset: 12;
               }
             }
           `}
@@ -48,9 +43,9 @@ export const MovingConnectionLine = ({ source, target, id, label, onClick }: Mov
       <path
         d={pathData}
         stroke="#e5e7eb"
-        strokeWidth="4"
+        strokeWidth="6"
         fill="none"
-        opacity="0.3"
+        opacity="0.4"
       />
       
       {/* Main animated path */}
@@ -59,30 +54,65 @@ export const MovingConnectionLine = ({ source, target, id, label, onClick }: Mov
         stroke="#3b82f6"
         strokeWidth="3"
         fill="none"
-        className={`moving-dash-${id} ${onClick ? 'cursor-pointer hover:stroke-blue-600' : ''}`}
+        className={`moving-dash-${id} ${onClick ? 'cursor-pointer hover:stroke-blue-700' : ''}`}
         markerEnd="url(#arrowhead)"
         opacity="0.9"
         onClick={onClick}
         style={{ pointerEvents: onClick ? 'stroke' : 'none' }}
       />
       
-      {/* Connection label */}
+      {/* Connection label with icon */}
       {label && (
-        <foreignObject
-          x={midX - 40}
-          y={midY - 12}
-          width="80"
-          height="24"
+        <g 
           className={onClick ? 'cursor-pointer' : ''}
           onClick={onClick}
+          style={{ pointerEvents: onClick ? 'all' : 'none' }}
         >
-          <Badge 
-            variant="secondary" 
-            className="text-xs bg-white border border-blue-200 text-blue-700 shadow-sm hover:bg-blue-50 transition-colors"
+          {/* Label background */}
+          <rect
+            x={midX - 25}
+            y={midY - 10}
+            width="50"
+            height="20"
+            fill="white"
+            stroke="#3b82f6"
+            strokeWidth="1"
+            rx="3"
+            opacity="0.95"
+          />
+          
+          {/* Label text */}
+          <text
+            x={midX - 18}
+            y={midY + 4}
+            fontSize="10"
+            fill="#1e40af"
+            fontFamily="Roboto, sans-serif"
+            fontWeight="500"
           >
-            {label}
-          </Badge>
-        </foreignObject>
+            {label.length > 6 ? label.substring(0, 6) : label}
+          </text>
+          
+          {/* Info icon */}
+          <circle
+            cx={midX + 15}
+            cy={midY}
+            r="6"
+            fill="#3b82f6"
+            opacity="0.8"
+          />
+          <text
+            x={midX + 15}
+            y={midY + 2}
+            fontSize="8"
+            fill="white"
+            textAnchor="middle"
+            fontFamily="Arial"
+            fontWeight="bold"
+          >
+            i
+          </text>
+        </g>
       )}
     </g>
   );

@@ -10,9 +10,22 @@ interface SystemDashboardProps {
   data: SystemData;
 }
 
+interface ComponentGroup {
+  id: string;
+  name: string;
+  mainComponent: ComponentNode;
+  subComponents: ComponentNode[];
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
 export const SystemDashboard = ({ data }: SystemDashboardProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes] = useState<ComponentNode[]>([]);
+  const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
   const [connections, setConnections] = useState<ConnectionLine[]>([]);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [selectedNode, setSelectedNode] = useState<ComponentNode | null>(null);
@@ -20,60 +33,52 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
 
   const calculateLayout = () => {
     const containerWidth = canvasRef.current?.clientWidth || 1200;
+    const containerHeight = Math.max(800, data.components.length * 400);
     
-    // Calculate dynamic height based on components
-    const componentsWithSubs = data.components.filter(c => c.sub_components.length > 0);
-    const componentsWithoutSubs = data.components.filter(c => c.sub_components.length === 0);
-    const totalSubComponents = data.components.reduce((sum, c) => sum + c.sub_components.length, 0);
-    
-    // Dynamic height calculation
-    const minHeight = 600;
-    const componentHeight = 250;
-    const subComponentPadding = totalSubComponents * 30;
-    const calculatedHeight = Math.max(minHeight, data.components.length * componentHeight + subComponentPadding);
-    
-    setCanvasSize({ width: containerWidth, height: calculatedHeight });
+    setCanvasSize({ width: containerWidth, height: containerHeight });
 
-    const newNodes: ComponentNode[] = [];
+    const newGroups: ComponentGroup[] = [];
     const newConnections: ConnectionLine[] = [];
     
-    // Improved layout calculation
-    const componentsPerRow = Math.min(4, Math.max(2, Math.floor(containerWidth / 350)));
-    const componentSpacing = { 
-      x: containerWidth / componentsPerRow, 
-      y: Math.max(300, calculatedHeight / Math.ceil(data.components.length / componentsPerRow))
-    };
+    // Layout components in a more organized grid
+    const componentsPerRow = Math.min(3, Math.max(2, Math.floor(containerWidth / 400)));
+    const groupSpacing = { x: containerWidth / componentsPerRow, y: 350 };
     
     data.components.forEach((component, componentIndex) => {
       const row = Math.floor(componentIndex / componentsPerRow);
       const col = componentIndex % componentsPerRow;
       
-      const baseX = (col * componentSpacing.x) + (componentSpacing.x / 2);
-      const baseY = row * componentSpacing.y + 120;
+      const groupCenterX = (col * groupSpacing.x) + (groupSpacing.x / 2);
+      const groupCenterY = row * groupSpacing.y + 200;
       
-      // Add main component node with dynamic sizing
-      const hasSubComponents = component.sub_components.length > 0;
-      newNodes.push({
+      // Main component position
+      const mainComponent: ComponentNode = {
         id: component.id,
         name: component.name,
         labels: component.labels,
-        position: { x: baseX, y: baseY },
+        position: { x: groupCenterX, y: groupCenterY },
         type: 'component',
         app_ui_link: component.app_ui_link,
         cosmos_link: component.cosmos_link
-      });
+      };
 
-      // Add sub-components with better organization
+      // Sub-components arranged around the main component
+      const subComponents: ComponentNode[] = [];
+      const hasSubComponents = component.sub_components.length > 0;
+      
       if (hasSubComponents) {
         const subComponentCount = component.sub_components.length;
-        const subCompRadius = Math.max(140, Math.min(200, subComponentCount * 25));
+        const cols = Math.ceil(Math.sqrt(subComponentCount));
+        const rows = Math.ceil(subComponentCount / cols);
         
         component.sub_components.forEach((subComponent, subIndex) => {
-          const angle = (2 * Math.PI * subIndex) / subComponentCount;
-          const subX = baseX + subCompRadius * Math.cos(angle);
-          const subY = baseY + 180 + subCompRadius * Math.sin(angle);
+          const subRow = Math.floor(subIndex / cols);
+          const subCol = subIndex % cols;
           
-          newNodes.push({
+          const subX = groupCenterX - (cols * 90) + (subCol * 180) + 90;
+          const subY = groupCenterY + 120 + (subRow * 100);
+          
+          subComponents.push({
             id: subComponent.id.replace(/"/g, ''),
             name: subComponent.name,
             labels: subComponent.labels,
@@ -85,24 +90,43 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
           });
         });
       }
+
+      // Calculate bounding box for the group
+      const allComponents = [mainComponent, ...subComponents];
+      const minX = Math.min(...allComponents.map(c => c.position.x)) - 120;
+      const maxX = Math.max(...allComponents.map(c => c.position.x)) + 120;
+      const minY = Math.min(...allComponents.map(c => c.position.y)) - 60;
+      const maxY = Math.max(...allComponents.map(c => c.position.y)) + 60;
+
+      newGroups.push({
+        id: component.id,
+        name: component.name,
+        mainComponent,
+        subComponents,
+        boundingBox: {
+          x: minX,
+          y: minY,
+          width: maxX - minX,
+          height: maxY - minY
+        }
+      });
     });
 
-    // Add connections with labels
+    // Create connections with better positioning
     data.connections.forEach((connection, index) => {
       const cleanStart = connection.start.replace(/"/g, '');
       const cleanEnd = connection.end.replace(/"/g, '');
       
-      // Generate connection label based on type or pattern
       let connectionLabel = connection.label;
       if (!connectionLabel) {
         if (cleanStart.toLowerCase().includes('kafka') || cleanEnd.toLowerCase().includes('kafka')) {
-          connectionLabel = 'Kafka Queue';
+          connectionLabel = 'Kafka';
         } else if (cleanStart.toLowerCase().includes('api') || cleanEnd.toLowerCase().includes('api')) {
-          connectionLabel = 'REST API';
+          connectionLabel = 'API';
         } else if (cleanStart.toLowerCase().includes('stream')) {
-          connectionLabel = 'Data Stream';
+          connectionLabel = 'Stream';
         } else {
-          connectionLabel = 'Data Flow';
+          connectionLabel = 'Data';
         }
       }
       
@@ -115,7 +139,7 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
       });
     });
 
-    setNodes(newNodes);
+    setComponentGroups(newGroups);
     setConnections(newConnections);
   };
 
@@ -131,14 +155,18 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
   }, [data]);
 
   const getNodePosition = (nodeId: string): Position | null => {
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) return null;
-    
-    // Return center position of the card for connections
-    return { 
-      x: node.position.x, 
-      y: node.position.y 
-    };
+    // Find in main components
+    for (const group of componentGroups) {
+      if (group.mainComponent.id === nodeId) {
+        return group.mainComponent.position;
+      }
+      // Find in sub-components
+      const subComponent = group.subComponents.find(sub => sub.id === nodeId);
+      if (subComponent) {
+        return subComponent.position;
+      }
+    }
+    return null;
   };
 
   const handleNodeClick = (node: ComponentNode) => {
@@ -156,12 +184,32 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
         className="relative w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-auto border-2 border-gray-100 rounded-lg"
         style={{ height: Math.max(600, canvasSize.height + 100) }}
       >
+        {/* Component Group Boundaries */}
+        {componentGroups.map(group => (
+          <div
+            key={`group-${group.id}`}
+            className="absolute border-2 border-dashed border-blue-300 rounded-lg bg-white/20 backdrop-blur-sm"
+            style={{
+              left: group.boundingBox.x,
+              top: group.boundingBox.y,
+              width: group.boundingBox.width,
+              height: group.boundingBox.height,
+              zIndex: 1
+            }}
+          >
+            {/* Group Title */}
+            <div className="absolute -top-6 left-4 bg-blue-600 text-white px-3 py-1 rounded-t-lg text-sm font-roboto font-semibold">
+              {group.name.replace(/"/g, '')}
+            </div>
+          </div>
+        ))}
+
         {/* SVG for connections */}
         <svg
-          className="absolute inset-0 pointer-events-none z-10"
+          className="absolute inset-0 pointer-events-none"
           width={canvasSize.width}
           height={canvasSize.height}
-          style={{ overflow: 'visible' }}
+          style={{ overflow: 'visible', zIndex: 10 }}
         >
           <defs>
             <marker
@@ -200,28 +248,43 @@ export const SystemDashboard = ({ data }: SystemDashboardProps) => {
           })}
         </svg>
 
-        {/* Component nodes with improved positioning */}
-        {nodes.map(node => {
-          const isMainComponent = node.type === 'component';
-          const cardWidth = isMainComponent ? 160 : 140;
-          const cardHeight = isMainComponent ? 80 : 70;
-          
-          return (
+        {/* Component nodes */}
+        {componentGroups.map(group => (
+          <div key={`nodes-${group.id}`}>
+            {/* Main component */}
             <div
-              key={node.id}
-              className="absolute transition-all duration-300 z-20"
+              className="absolute transition-all duration-300"
               style={{
-                left: node.position.x - cardWidth,
-                top: node.position.y - cardHeight,
+                left: group.mainComponent.position.x - 80,
+                top: group.mainComponent.position.y - 40,
+                zIndex: 20
               }}
             >
               <MaterialComponentCard 
-                node={node} 
-                onClick={() => handleNodeClick(node)}
+                node={group.mainComponent} 
+                onClick={() => handleNodeClick(group.mainComponent)}
               />
             </div>
-          );
-        })}
+            
+            {/* Sub-components */}
+            {group.subComponents.map(subComponent => (
+              <div
+                key={subComponent.id}
+                className="absolute transition-all duration-300"
+                style={{
+                  left: subComponent.position.x - 70,
+                  top: subComponent.position.y - 35,
+                  zIndex: 20
+                }}
+              >
+                <MaterialComponentCard 
+                  node={subComponent} 
+                  onClick={() => handleNodeClick(subComponent)}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
 
         {data.components.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center z-30">

@@ -4,7 +4,7 @@ import { Component, Connection, Layout } from '../types/ComponentTypes';
 const elk = new ELK();
 
 const DEFAULT_WIDTH = 300;
-const PARENT_PADDING_TOP = 50; // Extra space for the parent title
+const PARENT_PADDING_TOP = 100; // Increased space for parent title, labels, and links
 const PARENT_PADDING_SIDES = 20;
 
 // Constants for flexible height calculation (approximating MaterialComponentCard layout)
@@ -13,6 +13,11 @@ const CAPSULE_HEIGHT = 24; // Approximated height of a label capsule
 const CAPSULES_PER_ROW = 3; // How many capsules fit horizontally before wrapping
 const CAPSULE_V_SPACING = 4; // gap-1 from tailwind
 const CARD_CONTENT_PADDING_Y = 8; // py-2 for card content
+
+// Parent component header height calculation
+const PARENT_HEADER_HEIGHT = 60; // Base height for parent header (title + links)
+const PARENT_LABEL_HEIGHT = 28; // Height for label row
+const PARENT_LABEL_V_SPACING = 4; // Spacing between label rows
 
 // Simple hash function to create a unique key for the data
 const createDataHash = (components: Component[], connections: Connection[]): string => {
@@ -72,6 +77,21 @@ const calculateLeafNodeHeight = (component: Component): number => {
   }
 
   return Math.max(height, 80); // Ensure a minimum height
+};
+
+const calculateParentNodeHeight = (component: Component): number => {
+  const labelCount = Math.min(component.labels?.length || 0, 3); // Capped at 3 displayed labels for parents
+  let height = PARENT_HEADER_HEIGHT;
+  
+  if (labelCount > 0) {
+    const rows = Math.ceil(labelCount / CAPSULES_PER_ROW);
+    height += rows * PARENT_LABEL_HEIGHT;
+    if (rows > 1) {
+      height += (rows - 1) * PARENT_LABEL_V_SPACING;
+    }
+  }
+  
+  return height;
 };
 
 export const generateLayout = async (

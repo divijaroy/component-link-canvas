@@ -143,16 +143,24 @@ export const EnhancedSystemDashboard: React.FC = () => {
             >
               {node.isParent ? (
                 <div className="w-full h-full rounded-xl bg-slate-200/50 border-2 border-slate-300/80 border-dashed">
-                  <h3 className="p-3 font-semibold text-slate-700 text-base">
-                    {node.name}
-                  </h3>
+                  <div className="p-3">
+                    <MaterialComponentCard
+                      node={{
+                        ...node,
+                        position: { x: node.x ?? 0, y: node.y ?? 0 },
+                        nodeType: 'parent'
+                      }}
+                      onClick={handleNodeClick}
+                      isParent={true}
+                    />
+                  </div>
                 </div>
               ) : (
                 <MaterialComponentCard
                   node={{
                     ...node,
                     position: { x: node.x ?? 0, y: node.y ?? 0 },
-                    nodeType: 'leaf' // This might need adjustment based on MaterialComponentCard's needs
+                    nodeType: 'leaf'
                   }}
                   onClick={handleNodeClick}
                 />

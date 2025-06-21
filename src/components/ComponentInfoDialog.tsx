@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Database, Server, Component, Zap, Clock } from 'lucide-react';
+import { ExternalLink, Database, Server, AppWindow, Zap, Clock } from 'lucide-react';
 
 interface ComponentInfoDialogProps {
   node: any | null;
@@ -17,6 +17,22 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
       return <Server className="w-6 h-6 text-blue-600" />;
     }
     
+    const typeLabel = node.labels.find((l: any) => l.label.toLowerCase() === 'type');
+    const typeValue = typeLabel?.value.toLowerCase();
+
+    if (typeValue) {
+      if (typeValue.includes('spark') || typeValue.includes('stream')) {
+        return <Zap className="w-6 h-6 text-yellow-600" />;
+      }
+      if (typeValue.includes('batch') || typeValue.includes('job') || typeValue.includes('azkaban')) {
+        return <Clock className="w-6 h-6 text-green-600" />;
+      }
+      if (typeValue.includes('drop-wizard') || typeValue.includes('rest')) {
+        return <Server className="w-6 h-6 text-blue-600" />;
+      }
+    }
+
+    // Fallback to name-based detection
     const name = node.name.toLowerCase();
     if (name.includes('spark') || name.includes('stream')) {
       return <Zap className="w-6 h-6 text-yellow-600" />;
@@ -24,10 +40,11 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
     if (name.includes('batch') || name.includes('job')) {
       return <Clock className="w-6 h-6 text-green-600" />;
     }
-    if (name.includes('db') || name.includes('data')) {
+    if (name.includes('db') || name.includes('data') || name.includes('indexer')) {
       return <Database className="w-6 h-6 text-purple-600" />;
     }
-    return <Component className="w-6 h-6 text-gray-600" />;
+    
+    return <AppWindow className="w-6 h-6 text-gray-600" />;
   };
 
   const handleLinkClick = (url: string) => {
@@ -60,10 +77,10 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
                 {node.labels.map((label: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                     <span className="font-roboto text-sm text-gray-600 font-medium">
-                      {label.label}:
+                      {label.label.toLowerCase()}:
                     </span>
                     <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
-                      {label.value || 'Loading...'}
+                      {String(label.value || 'Loading...').toLowerCase()}
                     </Badge>
                   </div>
                 ))}

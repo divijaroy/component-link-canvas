@@ -249,6 +249,7 @@ export const generateLayout = async (
         source: edge.sources[0],
         target: edge.targets[0],
         label: originalEdge?.label,
+        connectionComponentId: originalEdge?.connectionComponentId,
         sections: path ? [path] : undefined,
       };
     });

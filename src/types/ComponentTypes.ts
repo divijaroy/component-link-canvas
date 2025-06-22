@@ -15,11 +15,26 @@ export interface Component {
   labels: Label[];
   app_ui_link?: string;
   metrics_ui_link?: string;
-  connections: string[]; // Connections defined at component level
+  connections: (string | ConnectionObject)[]; // Connections defined at component level - can be string (old format) or ConnectionObject (new format)
+  status?: string;
+}
+
+export interface ConnectionObject {
+  id: string;
+  target: string;
+  name: string;
+  type: string;
+  description?: string;
+  labels: Label[];
+  app_ui_link?: string;
+  metrics_ui_link?: string;
+  status?: string;
+  latency?: string;
 }
 
 export interface SystemData {
   components: Component[];
+  connections?: any[]; // Connection components like Kafka, Redis, etc.
 }
 
 export interface Position {
@@ -41,6 +56,7 @@ export interface ComponentNode {
   metrics_ui_link?: string;
   connections: string[];
   nodeType: 'parent' | 'leaf';
+  status?: string;
 }
 
 export interface ConnectionLine {
@@ -70,6 +86,7 @@ export interface Connection {
   source: string;
   target: string;
   label?: string;
+  connectionComponentId?: string; // ID of the connection component (Kafka, Redis, etc.)
 }
 
 export interface Layout {

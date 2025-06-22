@@ -1,155 +1,151 @@
 {
+  "system": {
+    "name": "NEO BCAP",
+    "description": "Real-time budget capping systems for Display & PCA Ads",
+    "labels": [
+      { "label": "dc", "value": "GCP" },
+      { "label": "overall_lag", "value": "$eval({\"url\": \"https://www.random.org/integers/?num=1&min=1&max=6&col=1&base=10&format=plain&rnd=new\", \"type\": \"text\"})" }
+    ],
+    "total_components": 4,
+    "status": "healthy",
+    "links": {
+      "dashboard": "https://cosmos.fkcloud.in/d/Vae4LUK4k/bcap-3-0?orgId=1",
+      "monitoring": "https://console.cloud.google.com/monitoring/dashboards?project=fkp-fdphadoop-krios",
+      "metrics": "https://cosmos.fkcloud.in/d/Vae4LUK4k/bcap-3-0?orgId=1#:~:text=Archived%20dashboard",
+      "admin": "https://console.cloud.google.com/dataproc/clusters?project=fkp-fdphadoop-krios",
+      "logs": "https://console.cloud.google.com/logs/query?project=fkp-fdphadoop-krios",
+      "documentation": "https://docs.fkcloud.in/neo-bcap"
+    }
+  },
   "components": [
     {
       "name": "Raw Streaming Jobs",
       "id": "raw",
       "type": "component",
+      "labels": [
+        { "label": "Type", "value": "Spark Streaming" },
+        { "label": "Lag", "value": "$eval({\"url\": \"http://get-metric-value\", \"type\": \"auto\"})" }
+      ],
+      "metrics_ui_link": "https://cosmos.fkcloud.in/d/Vae4LUK4k/bcap-3-0?orgId=1#:~:text=Archived%20dashboard-,Raw%20Jobs",
+      "app_ui_link":"https://console.cloud.google.com/dataproc/clusters/fkp-fdp-moon-deb11-m3optimization-202501201229/monitoring?region=asia-south1&inv=1&invt=Ab0v7g&project=fkp-fdphadoop-krios",
       "components": [
         {
           "name": "Ads DCI",
           "id": "dci",
           "type": "component",
-          "components": [
-            ""
-          ],
           "app_ui_link": "https://console.cloud.google.com/dataproc/clusters/fkp-fdp-moon-deb11-m3optimization-202501201229/monitoring?region=asia-south1&inv=1&invt=Ab0v7g&project=fkp-fdphadoop-krios",
           "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
           "labels": [
-            {
-              "label": "type",
-              "value": "spark-streaming"
-            },
-            {
-              "label": "lag",
-              "value": "$eval(http://get-metric-value)"
-            }
+            { "label": "type", "value": "spark-streaming" },
+            { "label": "lag", "value": "$eval({\"url\": \"http://get-metric-value\", \"type\": \"auto\"})" }
           ],
-          "connections": [
-            "bdm"
-          ]
+          "connections": [{
+            "id": "dci-to-bdm",
+            "target": "bdm",
+            "name": "Kafka",
+            "type": "message-queue",
+            "description": "High-throughput stream from DCI to BDM",
+            "labels": [
+              { "label": "type", "value": "kafka" },
+              { "label": "topic", "value": "dci-stream" }
+            ],
+            "status": "healthy"
+          }]
         },
         {
           "name": "Ads DCC",
           "id": "dcc",
           "type": "component",
-          "components": [
-            ""
-          ],
           "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
           "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
           "labels": [
-            {
-              "label": "type",
-              "value": "spark-streaming"
-            },
-            {
-              "label": "lag",
-              "value": "$eval(http://get-metric-value)"
-            }
+            { "label": "type", "value": "spark-streaming" },
+            { "label": "lag", "value": "$eval({\"url\": \"http://get-metric-value\", \"type\": \"auto\"})" }
           ],
-          "connections": [
-            "bdm"
-          ]
+          "connections": [{
+            "id": "dcc-to-bdm",
+            "target": "bdm",
+            "name": "Ciesti",
+            "type": "message-queue",
+            "description": "Internal stream from DCC to BDM",
+            "labels": [
+              { "label": "type", "value": "ciesti" },
+              { "label": "topic", "value": "dcc-stream" }
+            ],
+            "status": "healthy"
+          }]
         }
-      ],
-      "app_ui_link": "https://console.cloud.google.com/dataproc/clusters/fkp-fdp-moon-deb11-m3optimization-202501201229/monitoring?region=asia-south1&inv=1&invt=Ab0v7g&project=fkp-fdphadoop-krios",
-      "metrics_ui_link": "https://cosmos.fkcloud.in/d/Vae4LUK4k/bcap-3-0?orgId=1#:~:text=Archived%20dashboard-,Raw%20Jobs",
-      "labels": [
-        {
-          "label": "Type",
-          "value": "Spark Streaming"
-        },
-        {
-          "label": "Lag",
-          "value": "$eval(http://get-metric-value)"
-        }
-      ],
-      "connections": []
+      ]
     },
     {
       "name": "Batch Jobs",
       "id": "batch",
       "type": "component",
+      "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+      "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
+      "labels": [
+        { "label": "type", "value": "azkaban" },
+        { "label": "last-run", "value": "$eval({\"url\": \"http://get-metric-value\", \"type\": \"auto\"})" }
+      ],
       "components": [
         {
           "name": "Corrected Job",
           "id": "corrected",
           "type": "component",
-          "components": [
-            ""
-          ],
           "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
           "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
           "labels": [
-            {
-              "label": "type",
-              "value": "azkaban"
-            },
-            {
-              "label": "lag",
-              "value": "$eval(http://get-metric-value)"
-            }
+            { "label": "type", "value": "azkaban" },
+            { "label": "lag", "value": "$eval({\"url\": \"http://get-metric-value\", \"type\": \"json\", \"jsonPath\": \".data.result[0].values[1][1]\"})" }
           ],
-          "connections": [
-            "bdm"
-          ]
+          "connections": [{
+            "id": "corrected-to-bdm",
+            "target": "bdm",
+            "name": "Varadhi",
+            "type": "message-queue",
+            "description": "Batch job output from Corrected to BDM",
+            "labels": [
+              { "label": "type", "value": "varadhi" },
+              { "label": "topic", "value": "corrected-output" }
+            ],
+            "status": "healthy"
+          }]
         }
-      ],
-      "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
-      "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
-      "labels": [
-        {
-          "label": "type",
-          "value": "azkaban"
-        },
-        {
-          "label": "last-run",
-          "value": "$eval(http://get-metric-value)"
-        }
-      ],
-      "connections": []
+      ]
     },
     {
       "name": "Indexer",
       "id": "indexer",
       "type": "component",
-      "components": [
-        ""
-      ],
-      "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+      "app_ui_link": "http://ch2.kubernetes.alm-prod.fkcloud.in/kubernetes/clusters/gke-prod-1/dashboard/#/pod?namespace=fk-neo-spark-prod",
       "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
       "labels": [
-        {
-          "label": "type",
-          "value": "drop-wizard"
-        },
-        {
-          "label": "lag",
-          "value": "$eval(http://get-metric-value)"
-        }
+        { "label": "type", "value": "drop-wizard" },
+        { "label": "dc", "value": "GCP" }
       ],
-      "connections": [
-        "bdm"
-      ]
+      "connections": [{
+        "id": "indexer-to-bdm",
+        "target": "bdm",
+        "name": "Kafka",
+        "type": "message-queue",
+        "description": "Output stream from Indexer to BDM",
+        "labels": [
+          { "label": "type", "value": "kafka" },
+          { "label": "topic", "value": "indexer-output" }
+        ],
+        "status": "healthy"
+      }],
+      "status": "$eval({\"url\": \"http://neo-bcap-indexer-service.fk-neo-spark-prod.fkcloud.in/elb-healthcheck\", \"type\": \"status\", \"successValue\": \"Healthy\", \"errorValue\": \"Unhealthy\"})"
     },
     {
       "name": "BDM",
       "id": "bdm",
       "type": "component",
-      "components": [
-        ""
-      ],
       "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
       "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
       "labels": [
-        {
-          "label": "Type",
-          "value": "Spark Streaming"
-        },
-        {
-          "label": "Lag",
-          "value": "$eval(http://get-metric-value)"
-        }
+        { "label": "Type", "value": "Spark Streaming" },
+        { "label": "Lag", "value": "$eval({\"url\": \"http://get-metric-value\", \"type\": \"auto\"})" }
       ],
       "connections": []
     }

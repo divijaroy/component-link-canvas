@@ -417,6 +417,32 @@ export const EnhancedSystemDashboard: React.FC = () => {
     return null;
   };
 
+  const handleWheel = (e: React.WheelEvent) => {
+    // Check for pinch-to-zoom gesture
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const container = containerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      setViewTransform(prev => {
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const newScale = Math.max(0.1, Math.min(prev.scale * zoomFactor, 5));
+
+        // Pan to keep the mouse position stable
+        const newX = mouseX - (mouseX - prev.x) * (newScale / prev.scale);
+        const newY = mouseY - (mouseY - prev.y) * (newScale / prev.scale);
+
+        return { x: newX, y: newY, scale: newScale };
+      });
+    }
+  };
+
   return (
     <div className="w-full h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-200">
       {/* System Header - Fixed and outside zoomable area */}
@@ -430,15 +456,16 @@ export const EnhancedSystemDashboard: React.FC = () => {
       <div 
         ref={containerRef} 
         className="flex-1 overflow-auto relative"
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
       >
-        {/* Component Canvas */}
+        {/* Component Canvas - This is the pannable and zoomable area */}
         <div 
           className="relative w-full h-full"
           style={{ cursor: isPannable ? 'grabbing' : 'grab' }}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onMouseUp}
+          onMouseLeave={onMouseUp}
+          onWheel={handleWheel}
         >
           <div 
             className="absolute" 
@@ -552,7 +579,7 @@ export const EnhancedSystemDashboard: React.FC = () => {
           </div>
         </div>
         
-        {/* Zoom Controls */}
+        {/* Zoom Controls - Kept outside the transformed area */}
         <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
           <button onClick={() => zoom('in')} className="p-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200 hover:bg-white hover:shadow-md transition-all duration-200">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>

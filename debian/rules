@@ -1,0 +1,31 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	dh_auto_install
+	# Install the built application to /usr/share/netra
+	mkdir -p debian/netra/usr/share/netra
+	cp -r dist/* debian/netra/usr/share/netra/
+	
+	# Install the server script
+	mkdir -p debian/netra/usr/bin
+	cp server.js debian/netra/usr/bin/netra-server
+	chmod +x debian/netra/usr/bin/netra-server
+	
+	# Install the eye icon
+	cp public/eye-icon.svg debian/netra/usr/share/netra/
+	
+	# Install systemd service file
+	mkdir -p debian/netra/etc/systemd/system
+	cp debian/netra.service debian/netra/etc/systemd/system/
+	
+	# Install desktop file
+	mkdir -p debian/netra/usr/share/applications
+	cp debian/netra.desktop debian/netra/usr/share/applications/
+
+override_dh_auto_build:
+	# Install dependencies and build the application
+	npm ci
+	npm run build 

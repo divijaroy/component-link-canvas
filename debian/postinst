@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+
+# Create netra user and group if they don't exist
+if ! getent group netra > /dev/null 2>&1; then
+    addgroup --system netra
+fi
+
+if ! getent passwd netra > /dev/null 2>&1; then
+    adduser --system --ingroup netra --home /var/lib/netra --shell /bin/false netra
+fi
+
+# Set proper permissions
+chown -R netra:netra /usr/share/netra
+chmod +x /usr/bin/netra-server
+
+# Reload systemd and enable service
+systemctl daemon-reload
+systemctl enable netra.service
+
+echo "Netra has been installed successfully!"
+echo "To start the service: sudo systemctl start netra"
+echo "To view the application: http://localhost:3000" 

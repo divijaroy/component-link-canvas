@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+
+# Stop and disable the service before removal
+systemctl stop netra.service || true
+systemctl disable netra.service || true
+systemctl daemon-reload || true 

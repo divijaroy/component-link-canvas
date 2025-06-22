@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+# Remove netra user and group if they exist and are not used by other packages
+if getent passwd netra > /dev/null 2>&1; then
+    # Check if any files are still owned by netra user
+    if ! find /usr/share/netra -user netra > /dev/null 2>&1; then
+        deluser --system netra || true
+    fi
+fi
+
+if getent group netra > /dev/null 2>&1; then
+    # Check if group is empty
+    if ! getent passwd | grep -q ":.*:.*:.*:.*:.*:.*netra"; then
+        delgroup --system netra || true
+    fi
+fi
+
+# Remove empty directories
+rmdir /usr/share/netra 2>/dev/null || true
+rmdir /var/lib/netra 2>/dev/null || true 

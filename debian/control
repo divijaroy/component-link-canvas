@@ -1,0 +1,23 @@
+Source: netra
+Section: web
+Priority: optional
+Maintainer: Nithin Banka <nithinbanka@gmail.com>
+Build-Depends: debhelper (>= 11), nodejs (>= 16), npm (>= 8)
+Standards-Version: 4.5.1
+
+Package: netra
+Architecture: all
+Depends: ${misc:Depends}, nodejs (>= 16), npm (>= 8)
+Description: Modern system architecture visualization tool
+ Netra is an interactive system architecture visualization tool
+ that displays components and their connections with real-time
+ status monitoring and centralized evaluation.
+ .
+ Features include:
+  * Interactive canvas with zoom and pan
+  * Real-time status monitoring via HTTP endpoints
+  * Centralized evaluation system with shared caching
+  * Dynamic connection labels with collision detection
+  * Modern glassmorphism UI design
+  * System information dialogs with quick links
+  * Support for complex component relationships 

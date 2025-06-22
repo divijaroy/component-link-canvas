@@ -1,0 +1,12 @@
+netra (1.0.0-1) unstable; urgency=medium
+
+  * Initial release of Netra
+  * Interactive system architecture visualization tool
+  * Real-time status monitoring via HTTP endpoints
+  * Centralized evaluation system with shared caching
+  * Dynamic connection labels with collision detection
+  * Modern glassmorphism UI design
+  * System information dialogs with quick links
+  * Support for complex component relationships
+
+ -- Nithin Banka <nithinbanka@gmail.com>  Sun, 22 Jun 2025 14:30:00 +0530 

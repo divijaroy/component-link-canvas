@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Netra
+Comment=System Architecture Visualization Tool
+Exec=netra-server
+Icon=/usr/share/netra/eye-icon.svg
+Terminal=false
+Categories=Development;Network;WebDevelopment;
+Keywords=architecture;visualization;monitoring;system; 

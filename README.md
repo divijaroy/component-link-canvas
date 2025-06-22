@@ -68,22 +68,180 @@ A modern, interactive system architecture visualization tool that displays compo
 
 ## Data Structure
 
-Your system data should be structured as follows:
+Netra uses a JSON configuration file to define your system architecture. The structure is flexible and supports complex component relationships with real-time status monitoring.
+
+### Root Structure
+
+```json
+{
+  "system": { ... },
+  "components": [ ... ],
+  "connections": [ ... ]
+}
+```
+
+### System Configuration
+
+The `system` object defines global system information displayed in the header.
+
+#### Required Fields
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `name` | string | System name displayed in header | `"Production System"` |
+| `description` | string | System description | `"Main production environment"` |
+
+#### Optional Fields
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `status` | string | System-wide status | `"healthy"`, `"warning"`, `"error"` |
+| `labels` | Label[] | System-level metadata | See Label Structure below |
+| `links` | object | Quick access links | See Links Structure below |
+
+#### Label Structure
+
+Labels are key-value pairs displayed as capsules in the UI:
+
+```json
+{
+  "label": "Environment",
+  "value": "Production"
+}
+```
+
+**Supported Value Types:**
+- **Static**: `"Production"`
+- **Dynamic**: `"$eval({\"url\": \"https://api.example.com/version\", \"type\": \"json\", \"jsonPath\": \"version\"})"`
+
+#### Links Structure
+
+Quick access links organized by category:
+
+```json
+{
+  "dashboard": "https://dashboard.example.com",
+  "monitoring": "https://monitoring.example.com",
+  "documentation": "https://docs.example.com",
+  "admin": "https://admin.example.com",
+  "logs": "https://logs.example.com",
+  "metrics": "https://metrics.example.com"
+}
+```
+
+**Link Categories:**
+- `dashboard` - Main system dashboard
+- `monitoring` - Real-time monitoring
+- `documentation` - System documentation
+- `admin` - Administration panel
+- `logs` - System logs
+- `metrics` - Performance metrics
+
+### Component Configuration
+
+Components represent individual services, databases, or infrastructure elements.
+
+#### Required Fields
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `id` | string | Unique component identifier | `"api-gateway"` |
+| `name` | string | Display name | `"API Gateway"` |
+| `type` | string | Component type | `"gateway"`, `"service"`, `"database"` |
+
+#### Optional Fields
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `status` | string | Component health status | `"healthy"`, `"warning"`, `"error"` |
+| `labels` | Label[] | Component metadata | See Label Structure above |
+| `connections` | Connection[] | Outgoing connections | See Connection Structure below |
+| `app_ui_link` | string | Direct UI link | `"https://api.example.com"` |
+| `metrics_ui_link` | string | Metrics dashboard link | `"https://metrics.example.com/api"` |
+| `position` | object | Manual positioning | `{"x": 100, "y": 200}` |
+
+#### Component Types
+
+| Type | Description | Visual Style |
+|------|-------------|--------------|
+| `gateway` | API Gateway, Load Balancer | Blue border, gateway icon |
+| `service` | Microservice, Application | Green border, server icon |
+| `database` | Database, Storage | Purple border, database icon |
+| `queue` | Message Queue, Kafka | Orange border, queue icon |
+| `cache` | Cache, Redis | Yellow border, cache icon |
+| `monitoring` | Monitoring Service | Red border, monitoring icon |
+| `custom` | Custom Component | Gray border, custom icon |
+
+#### Position Structure
+
+For manual component positioning:
+
+```json
+{
+  "x": 100,
+  "y": 200
+}
+```
+
+### Connection Configuration
+
+Connections define relationships between components.
+
+#### Required Fields
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `source` | string | Source component ID | `"api-gateway"` |
+| `target` | string | Target component ID | `"user-service"` |
+
+#### Optional Fields
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `type` | string | Connection type | `"http"`, `"grpc"`, `"kafka"` |
+| `labels` | Label[] | Connection metadata | See Label Structure above |
+| `status` | string | Connection health | `"active"`, `"inactive"`, `"error"` |
+
+#### Connection Types
+
+| Type | Description | Visual Style |
+|------|-------------|--------------|
+| `http` | HTTP/REST API calls | Blue line with arrow |
+| `grpc` | gRPC calls | Green line with arrow |
+| `kafka` | Kafka message passing | Orange line with arrow |
+| `redis` | Redis operations | Yellow line with arrow |
+| `database` | Database queries | Purple line with arrow |
+| `websocket` | WebSocket connections | Cyan line with arrow |
+
+### Complete Example
 
 ```json
 {
   "system": {
-    "name": "My System",
-    "description": "System description",
+    "name": "E-Commerce Platform",
+    "description": "Production e-commerce system with microservices architecture",
+    "status": "$eval({\"url\": \"https://health.example.com/system\", \"type\": \"status\"})",
     "labels": [
-      {"label": "Environment", "value": "Production"},
-      {"label": "Version", "value": "1.2.3"}
+      {
+        "label": "Environment",
+        "value": "Production"
+      },
+      {
+        "label": "Version",
+        "value": "$eval({\"url\": \"https://api.example.com/version\", \"type\": \"json\", \"jsonPath\": \"version\"})"
+      },
+      {
+        "label": "Uptime",
+        "value": "$eval({\"url\": \"https://api.example.com/uptime\", \"type\": \"json\", \"jsonPath\": \"uptime.days\"})"
+      }
     ],
-    "status": "healthy",
     "links": {
       "dashboard": "https://dashboard.example.com",
       "monitoring": "https://monitoring.example.com",
-      "documentation": "https://docs.example.com"
+      "documentation": "https://docs.example.com",
+      "admin": "https://admin.example.com",
+      "logs": "https://logs.example.com",
+      "metrics": "https://metrics.example.com"
     }
   },
   "components": [
@@ -93,23 +251,127 @@ Your system data should be structured as follows:
       "type": "gateway",
       "status": "$eval({\"url\": \"https://api.example.com/health\", \"type\": \"status\"})",
       "labels": [
-        {"label": "Port", "value": "8080"},
-        {"label": "Version", "value": "2.1.0"}
+        {
+          "label": "Port",
+          "value": "8080"
+        },
+        {
+          "label": "Version",
+          "value": "2.1.0"
+        },
+        {
+          "label": "Requests/sec",
+          "value": "$eval({\"url\": \"https://api.example.com/metrics\", \"type\": \"json\", \"jsonPath\": \"requests_per_second\"})"
+        }
       ],
+      "app_ui_link": "https://api.example.com",
+      "metrics_ui_link": "https://metrics.example.com/api-gateway",
       "connections": [
         {
           "target": "user-service",
           "type": "http",
           "labels": [
-            {"label": "Queue", "value": "kafka"},
-            {"label": "Protocol", "value": "REST"}
+            {
+              "label": "Queue",
+              "value": "user-requests"
+            },
+            {
+              "label": "Protocol",
+              "value": "REST"
+            }
+          ]
+        },
+        {
+          "target": "product-service",
+          "type": "http",
+          "labels": [
+            {
+              "label": "Queue",
+              "value": "product-requests"
+            },
+            {
+              "label": "Protocol",
+              "value": "REST"
+            }
           ]
         }
       ]
+    },
+    {
+      "id": "user-service",
+      "name": "User Service",
+      "type": "service",
+      "status": "$eval({\"url\": \"https://user.example.com/health\", \"type\": \"status\"})",
+      "labels": [
+        {
+          "label": "Port",
+          "value": "8081"
+        },
+        {
+          "label": "Database",
+          "value": "PostgreSQL"
+        }
+      ],
+      "app_ui_link": "https://user.example.com",
+      "metrics_ui_link": "https://metrics.example.com/user-service",
+      "connections": [
+        {
+          "target": "user-db",
+          "type": "database",
+          "labels": [
+            {
+              "label": "Query Type",
+              "value": "CRUD"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "user-db",
+      "name": "User Database",
+      "type": "database",
+      "status": "$eval({\"url\": \"https://db.example.com/health\", \"type\": \"status\"})",
+      "labels": [
+        {
+          "label": "Type",
+          "value": "PostgreSQL"
+        },
+        {
+          "label": "Version",
+          "value": "14.5"
+        }
+      ],
+      "app_ui_link": "https://db.example.com",
+      "metrics_ui_link": "https://metrics.example.com/user-db"
     }
   ]
 }
 ```
+
+### Data File Configuration
+
+Netra supports multiple data files for different environments:
+
+1. **Environment Variable**: Set `VITE_DATA_FILE` to specify the data file
+   ```bash
+   VITE_DATA_FILE=data-complex.json npm run dev
+   ```
+
+2. **Default Files**:
+   - `data.json` - Simple example
+   - `data-complex.json` - Complex system example
+
+3. **File Location**: Place data files in the `public/` directory
+
+### Best Practices
+
+1. **Component IDs**: Use kebab-case for consistency (`api-gateway`, `user-service`)
+2. **Status Values**: Use consistent status strings (`healthy`, `warning`, `error`)
+3. **Labels**: Keep label names short and descriptive
+4. **$eval URLs**: Use HTTPS endpoints for security
+5. **Connection Types**: Use appropriate connection types for visual clarity
+6. **UI Links**: Provide both app and metrics links for better UX
 
 ## $eval Configuration
 

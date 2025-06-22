@@ -26,7 +26,7 @@ const StatusIndicator = ({ status }: { status: string }) => {
 };
 
 const CapsuleLabel = ({ label, value, isParent }: { label: string; value: any; isParent: boolean }) => {
-  const stringValue = String(value !== null && value !== undefined ? value : 'Loading...');
+  const stringValue = String(value || 'Loading...');
   const lowerCaseValue = stringValue.toLowerCase();
   
   // Determine value background color based on content
@@ -50,8 +50,8 @@ const CapsuleLabel = ({ label, value, isParent }: { label: string; value: any; i
       return 'bg-red-100 text-red-800 border-red-200';
     }
     
-    // Default neutral color
-    return 'bg-gray-100 text-gray-800 border-gray-200';
+    // Default blue for most values
+    return 'bg-blue-100 text-blue-800 border-blue-200';
   };
 
   return (
@@ -59,15 +59,15 @@ const CapsuleLabel = ({ label, value, isParent }: { label: string; value: any; i
       "flex items-center rounded-full overflow-hidden border",
       isParent ? "text-sm" : "text-xs"
     )}>
-      {/* Label capsule - blue background */}
+      {/* Label capsule - subtle gray background */}
       <div className={cn(
-        "px-2 py-1 bg-blue-500 text-white font-medium",
+        "px-2 py-1 bg-gray-100 text-gray-600 font-medium border-gray-200",
         isParent ? "px-3 py-1.5" : "px-2 py-1"
       )}>
         {label.toLowerCase()}
       </div>
       
-      {/* Value capsule - color-coded background */}
+      {/* Value capsule - blue or color-coded background */}
       <div className={cn(
         "px-2 py-1 border-l-0 font-medium",
         getValueBackground(),

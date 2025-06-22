@@ -25,38 +25,28 @@ const processSystemData = (systemData: SystemData): { components: Component[], c
 
       if (comp.connections) {
         comp.connections.forEach(connection => {
-          // Handle both old format (string) and new format (ConnectionObject)
+          // Handle simplified connection format: { name: string | null, target: string }
           let targetId: string;
-          let connectionComponentId: string | null = null;
+          let connectionName: string | null = null;
 
           if (typeof connection === 'string') {
-            // Old format: just a string target
+            // Legacy format: just a string target
             targetId = connection;
-            // Try to find a matching connection component based on the target
-            if (systemData.connections) {
-              if (targetId.toLowerCase().includes('db')) {
-                const postgresConn = systemData.connections.find(c => c.type === 'database');
-                connectionComponentId = postgresConn?.id;
-              } else if (targetId.toLowerCase().includes('cache')) {
-                const redisConn = systemData.connections.find(c => c.type === 'cache');
-                connectionComponentId = redisConn?.id;
-              } else if (targetId.toLowerCase().includes('queue')) {
-                const kafkaConn = systemData.connections.find(c => c.type === 'message-queue');
-                connectionComponentId = kafkaConn?.id;
-              }
-            }
-          } else {
-            // New format: ConnectionObject with full details
+            connectionName = getQueueName(comp.id, targetId);
+          } else if (connection && typeof connection === 'object') {
+            // New simplified format: { name: string | null, target: string }
             targetId = connection.target;
-            connectionComponentId = connection.id; // Use the connection's own ID
+            connectionName = connection.name || getQueueName(comp.id, targetId);
+          } else {
+            return; // Skip invalid connections
           }
 
           allConnections.push({
             id: `e${connId++}`,
             source: comp.id,
             target: targetId,
-            label: typeof connection === 'object' && connection.name ? connection.name : getQueueName(comp.id, targetId),
-            connectionComponentId: connectionComponentId
+            label: connectionName,
+            connectionComponentId: null // No longer needed with simplified format
           });
         });
       }
@@ -295,33 +285,22 @@ export const EnhancedSystemDashboard: React.FC = () => {
   };
 
   const handleConnectionClick = (connectionId: string) => {
-    // Find the edge to get its connectionComponentId
-    const edge = layout.edges.find(e => e.id === connectionId);
-    if (!edge || !edge.connectionComponentId) return;
-    
-    // Find the connection object by ID in all components
-    let connectionObject = null;
-    const findConnection = (components: Component[]) => {
-      for (const comp of components) {
-        if (comp.connections) {
-          for (const conn of comp.connections) {
-            if (typeof conn !== 'string' && conn.id === edge.connectionComponentId) {
-              connectionObject = conn;
-              return;
-            }
-          }
-        }
-        if (comp.components && comp.components.length > 0) {
-          findConnection(comp.components as Component[]);
-        }
-      }
+    // Find the connection in the processed connections
+    const connection = layout.edges.find(edge => edge.id === connectionId);
+    if (!connection) return;
+
+    // Create a simple connection info object for the dialog
+    const connectionInfo = {
+      id: connection.id,
+      name: connection.label || 'Connection',
+      source: connection.source,
+      target: connection.target,
+      description: `Connection from ${connection.source} to ${connection.target}`,
+      labels: [],
+      status: 'active'
     };
-    
-    findConnection(systemData?.components || []);
-    
-    if (connectionObject) {
-      setConnectionInfo(connectionObject);
-    }
+
+    setConnectionInfo(connectionInfo);
   };
 
   const handleRefreshLayout = async () => {

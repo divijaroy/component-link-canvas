@@ -16,6 +16,7 @@ export interface Component {
   app_ui_link?: string;
   metrics_ui_link?: string;
   connections: (string | ConnectionObject)[]; // Connections defined at component level - can be string (old format) or ConnectionObject (new format)
+  status?: string;
 }
 
 export interface ConnectionObject {
@@ -55,6 +56,7 @@ export interface ComponentNode {
   metrics_ui_link?: string;
   connections: string[];
   nodeType: 'parent' | 'leaf';
+  status?: string;
 }
 
 export interface ConnectionLine {

@@ -1,7 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Database, Server, AppWindow, Zap, Clock, Globe, MessageSquare, Warehouse, BarChart3 } from 'lucide-react';
+import { LabelEvaluator } from '../services/LabelEvaluator';
+import { Label } from '../types/ComponentTypes';
 
 interface ComponentInfoDialogProps {
   node: any | null;
@@ -10,6 +13,35 @@ interface ComponentInfoDialogProps {
 }
 
 export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoDialogProps) => {
+  const [evaluatedLabels, setEvaluatedLabels] = useState<Label[]>([]);
+  const [evaluatedStatus, setEvaluatedStatus] = useState<string>('unknown');
+
+  useEffect(() => {
+    const evaluateComponentInfo = async () => {
+      if (node) {
+        // Evaluate labels
+        if (node.labels) {
+          const evaluated = await LabelEvaluator.evaluateLabels(node.labels);
+          setEvaluatedLabels(evaluated);
+        }
+
+        // Evaluate status if it exists
+        if (node.status && typeof node.status === 'string') {
+          const evaluatedStatus = await LabelEvaluator.evaluate(node.status);
+          setEvaluatedStatus(evaluatedStatus);
+        } else {
+          setEvaluatedStatus('unknown');
+        }
+      }
+    };
+
+    if (open && node) {
+      evaluateComponentInfo();
+      const interval = setInterval(evaluateComponentInfo, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [node, open]);
+
   if (!node) return null;
 
   const getIcon = () => {
@@ -83,6 +115,7 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
       case 'warning':
         return 'bg-yellow-100 text-yellow-800';
       case 'error':
+      case 'unhealthy':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-blue-100 text-blue-700';
@@ -110,12 +143,22 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Status Section */}
+          {node.status && (
+            <div>
+              <h3 className="font-roboto font-medium text-gray-700 mb-2">Status</h3>
+              <Badge className={`${getStatusBadgeClass(evaluatedStatus)} border`}>
+                {evaluatedStatus}
+              </Badge>
+            </div>
+          )}
+
           {/* Labels Section */}
-          {node.labels && node.labels.length > 0 && (
+          {evaluatedLabels.length > 0 && (
             <div>
               <h3 className="font-roboto font-medium text-gray-700 mb-2">Labels</h3>
               <div className="space-y-2">
-                {node.labels.map((label: any, index: number) => {
+                {evaluatedLabels.map((label, index) => {
                   const isStatusLabel = label.label.toLowerCase() === 'status' || label.label.toLowerCase() === 'health';
                   const badgeClass = isStatusLabel 
                     ? getStatusBadgeClass(String(label.value))

@@ -6,6 +6,7 @@ import { generateLayout, clearLayoutCache } from '../services/ConnectivityLayout
 import { ComponentInfoDialog } from './ComponentInfoDialog';
 import { ConnectionInfoDialog } from './ConnectionInfoDialog';
 import { SystemHeader } from './SystemHeader';
+import { LabelEvaluator } from '../services/LabelEvaluator';
 import { RefreshCw } from 'lucide-react';
 
 // Helper to flatten components and extract connections
@@ -54,7 +55,7 @@ const processSystemData = (systemData: SystemData): { components: Component[], c
             id: `e${connId++}`,
             source: comp.id,
             target: targetId,
-            label: getQueueName(comp.id, targetId),
+            label: typeof connection === 'object' && connection.name ? connection.name : getQueueName(comp.id, targetId),
             connectionComponentId: connectionComponentId
           });
         });
@@ -176,6 +177,11 @@ export const EnhancedSystemDashboard: React.FC = () => {
   const lastMousePosition = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
+    // Start the global evaluation cycle for centralized eval management
+    LabelEvaluator.startGlobalEvaluation();
+  }, []);
+
+  useEffect(() => {
     const performLayout = async () => {
       // Clear layout cache to ensure we get fresh layout with connectionComponentId
       clearLayoutCache();
@@ -198,47 +204,38 @@ export const EnhancedSystemDashboard: React.FC = () => {
       // Extract connection components if available
       if (systemData.connections) {
         setConnectionComponents(systemData.connections);
-        console.log('Loaded connection components:', systemData.connections);
       }
 
+      // Process the system data to extract components and connections
       const { components, connections } = processSystemData(systemData);
-      console.log('Extracted components:', components.map(c => ({ id: c.id, name: c.name, parentId: c.parentId })));
-      console.log('Extracted connections:', connections);
-      console.log('Connection details:', connections.map(c => ({ 
-        id: c.id, 
-        source: c.source, 
-        target: c.target, 
-        connectionComponentId: c.connectionComponentId 
-      })));
-      
-      // Test: Check if we have any connections with connectionComponentId
-      const connectionsWithIds = connections.filter(c => c.connectionComponentId);
-      console.log('Connections with connectionComponentId:', connectionsWithIds);
-      
-      const laidOut = await generateLayout(components, connections, true);
-      console.log('Layout result:', laidOut);
-      console.log('Layout edges:', laidOut.edges);
-      
-      setLayout(laidOut);
+
+      // Generate layout
+      const generatedLayout = await generateLayout(components, connections, true);
+      setLayout(generatedLayout);
     };
+
     performLayout();
   }, []);
-  
-  // Center and zoom the view on load/update
-  useEffect(() => {
+
+  const fitToScreen = () => {
     const container = containerRef.current;
     if (container && layout.width > 0 && container.clientWidth > 0) {
-      const PADDING = 40; // Horizontal padding
-      const containerWidth = container.clientWidth;
-      const contentWidthWithPadding = layout.width + PADDING * 2;
-      
-      const scale = containerWidth / contentWidthWithPadding;
-      
-      const x = (containerWidth - (layout.width * scale)) / 2;
-      const y = PADDING; // Top padding
+      const safeAreaPadding = { top: 100, right: 50, bottom: 50, left: 50 };
+
+      const availableWidth = container.clientWidth - safeAreaPadding.left - safeAreaPadding.right;
+      if (availableWidth <= 0) return;
+
+      const scale = availableWidth / layout.width;
+      const x = safeAreaPadding.left;
+      const y = safeAreaPadding.top;
 
       setViewTransform({ x, y, scale });
     }
+  };
+  
+  // Center and zoom the view on load/update
+  useEffect(() => {
+    fitToScreen();
   }, [layout]);
 
   const zoom = (direction: 'in' | 'out') => {
@@ -265,19 +262,7 @@ export const EnhancedSystemDashboard: React.FC = () => {
   };
 
   const resetZoom = () => {
-    const container = containerRef.current;
-    if (container && layout.width > 0 && container.clientWidth > 0) {
-      const PADDING = 40; // Horizontal padding
-      const containerWidth = container.clientWidth;
-      const contentWidthWithPadding = layout.width + PADDING * 2;
-      
-      const scale = containerWidth / contentWidthWithPadding;
-      
-      const x = (containerWidth - (layout.width * scale)) / 2;
-      const y = PADDING; // Top padding
-
-      setViewTransform({ x, y, scale });
-    }
+    fitToScreen();
   };
 
   const onMouseDown = (e: React.MouseEvent) => {
@@ -501,8 +486,7 @@ export const EnhancedSystemDashboard: React.FC = () => {
                 const labelHeight = 24;
                 const labelPosition = findLabelPosition(path, layout.nodes, labelWidth, labelHeight);
                 
-                const label = getConnectionLabel(edge.id);
-                console.log('Label for edge', edge.id, ':', label);
+                const label = edge.label;
 
                 if (!labelPosition) return null;
 

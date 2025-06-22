@@ -1,15 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Activity, Clock, Database, Server, RefreshCw } from 'lucide-react';
-import { LabelEvaluator } from '../services/LabelEvaluator';
+import { useEvalValue } from '../hooks/useEvalValue';
+import { Label } from '../types/ComponentTypes';
+import { SystemInfoDialog } from './SystemInfoDialog';
 
 interface SystemInfo {
   name: string;
   description: string;
-  overall_lag: string;
+  labels?: Label[];
   total_components: number;
   status: string;
-  last_updated: string;
+  links?: {
+    dashboard?: string;
+    documentation?: string;
+    monitoring?: string;
+    admin?: string;
+    logs?: string;
+    metrics?: string;
+    [key: string]: string | undefined;
+  };
 }
 
 interface SystemHeaderProps {
@@ -18,38 +28,7 @@ interface SystemHeaderProps {
 }
 
 export const SystemHeader = ({ systemInfo, onRefresh }: SystemHeaderProps) => {
-  const [evaluatedInfo, setEvaluatedInfo] = useState<SystemInfo>(systemInfo);
-
-  useEffect(() => {
-    const evaluateSystemInfo = async () => {
-      const updatedInfo = { ...systemInfo };
-      
-      // Evaluate dynamic values
-      if (systemInfo.overall_lag.startsWith('$eval(')) {
-        try {
-          const lagValue = await LabelEvaluator.evaluate(systemInfo.overall_lag);
-          updatedInfo.overall_lag = lagValue;
-        } catch (error) {
-          updatedInfo.overall_lag = 'N/A';
-        }
-      }
-      
-      if (systemInfo.last_updated.startsWith('$eval(')) {
-        try {
-          const updatedValue = await LabelEvaluator.evaluate(systemInfo.last_updated);
-          updatedInfo.last_updated = updatedValue;
-        } catch (error) {
-          updatedInfo.last_updated = 'N/A';
-        }
-      }
-      
-      setEvaluatedInfo(updatedInfo);
-    };
-
-    evaluateSystemInfo();
-    const interval = setInterval(evaluateSystemInfo, 10000); // Update every 10 seconds
-    return () => clearInterval(interval);
-  }, [systemInfo]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const getStatusBadgeClass = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -58,67 +37,82 @@ export const SystemHeader = ({ systemInfo, onRefresh }: SystemHeaderProps) => {
       case 'warning':
         return 'bg-yellow-500 text-white font-semibold border border-yellow-600';
       case 'error':
+      case 'unhealthy':
         return 'bg-red-500 text-white font-semibold border border-red-600';
       default:
         return 'bg-blue-400 text-white font-semibold border border-blue-500';
     }
   };
 
+  const handleSystemClick = () => {
+    setIsDialogOpen(true);
+  };
+
   return (
-    <div className="w-full bg-blue-500 rounded-xl shadow-lg border border-blue-600">
-      <div className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <Server className="w-8 h-8 text-white" />
-              <div>
-                <h1 className="text-2xl font-bold text-white">{evaluatedInfo.name}</h1>
-                <p className="text-blue-200 text-sm">{evaluatedInfo.description}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-white" />
-              <div className="text-right">
-                <div className="text-xs text-blue-200">System Lag</div>
-                <div className="font-semibold text-white">{evaluatedInfo.overall_lag}ms</div>
+    <>
+      <div 
+        className="w-full bg-blue-500 rounded-xl shadow-lg border border-blue-600 cursor-pointer hover:bg-blue-600 transition-colors duration-200"
+        onClick={handleSystemClick}
+        title="Click to view system information and links"
+      >
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <Server className="w-8 h-8 text-white" />
+                <div>
+                  <h1 className="text-2xl font-bold text-white">{systemInfo.name}</h1>
+                  <p className="text-blue-200 text-sm">{systemInfo.description}</p>
+                </div>
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
-              <Database className="w-4 h-4 text-white" />
-              <div className="text-right">
-                <div className="text-xs text-blue-200">Components</div>
-                <div className="font-semibold text-white">{evaluatedInfo.total_components}</div>
+            <div className="flex items-center gap-4">
+              {/* System Labels */}
+              {systemInfo.labels?.map((label, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-white" />
+                  <div className="text-right">
+                    <div className="text-xs text-blue-200 capitalize">{label.label.replace(/_/g, ' ')}</div>
+                    <div className="font-semibold text-white">{useEvalValue(label.value)}</div>
+                  </div>
+                </div>
+              ))}
+              
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-white" />
+                <div className="text-right">
+                  <div className="text-xs text-blue-200">Components</div>
+                  <div className="font-semibold text-white">{systemInfo.total_components}</div>
+                </div>
               </div>
+              
+              <Badge className={getStatusBadgeClass(systemInfo.status)}>
+                {systemInfo.status}
+              </Badge>
+              
+              {onRefresh && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRefresh();
+                  }}
+                  className="p-2 bg-white/10 rounded-lg shadow-sm border border-blue-400 hover:bg-white/20 transition-all duration-200"
+                  title="Refresh Layout"
+                >
+                  <RefreshCw className="w-4 h-4 text-white" />
+                </button>
+              )}
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-white" />
-              <div className="text-right">
-                <div className="text-xs text-blue-200">Last Updated</div>
-                <div className="font-semibold text-white">{evaluatedInfo.last_updated}</div>
-              </div>
-            </div>
-            
-            <Badge className={getStatusBadgeClass(evaluatedInfo.status)}>
-              {evaluatedInfo.status}
-            </Badge>
-            
-            {onRefresh && (
-              <button
-                onClick={onRefresh}
-                className="p-2 bg-white/10 rounded-lg shadow-sm border border-blue-400 hover:bg-white/20 transition-all duration-200"
-                title="Refresh Layout"
-              >
-                <RefreshCw className="w-4 h-4 text-white" />
-              </button>
-            )}
           </div>
         </div>
       </div>
-    </div>
+
+      <SystemInfoDialog
+        systemInfo={systemInfo}
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+      />
+    </>
   );
 }; 

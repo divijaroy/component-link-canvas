@@ -1,19 +1,16 @@
-import path from "path";
-import react from "@vitejs/plugin-react-swc";
-import { defineConfig } from "vite";
-import { componentTagger } from "lovable-tagger";
-import type { Connect } from 'vite';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react-swc'
+import path from "path"
 import https from 'https';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   plugins: [
     react(),
-    mode === 'development' && componentTagger(),
     {
       name: 'dynamic-proxy',
-      configureServer(server: any) {
-        server.middlewares.use('/api/proxy', async (req: any, res: any, next: any) => {
+      configureServer(server) {
+        server.middlewares.use('/api/proxy', async (req, res, next) => {
           const url = new URL(req.url!, `http://${req.headers.host}`).searchParams.get('url');
           
           if (!url) {
@@ -31,27 +28,30 @@ export default defineConfig(({ mode }) => ({
             const response = await fetch(url, {
               agent: url.startsWith('https:') ? agent : undefined
             });
-            const data = await response.json();
-            
-            res.setHeader('Content-Type', 'application/json');
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            return res.end(JSON.stringify(data));
+
+            // Handle non-JSON responses gracefully
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              const data = await response.json();
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify(data));
+            } else {
+              const text = await response.text();
+              res.setHeader('Content-Type', 'text/plain');
+              res.end(text);
+            }
           } catch (error) {
             console.error('Proxy error:', error);
             res.statusCode = 500;
-            return res.end(JSON.stringify({ error: 'Failed to fetch from proxy' }));
+            res.end(JSON.stringify({ error: 'Failed to fetch from proxy' }));
           }
         });
       },
     },
-  ].filter(Boolean),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  server: {
-    host: "::",
-    port: 8080,
-  },
-}));
+})

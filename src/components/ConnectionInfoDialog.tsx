@@ -1,14 +1,17 @@
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Database, Server, AppWindow, Zap, Clock, Globe, MessageSquare, Warehouse, BarChart3 } from 'lucide-react';
+import { LabelEvaluator } from '../services/LabelEvaluator';
+import { Label } from '../types/ComponentTypes';
 
 interface ConnectionComponent {
   id: string;
   name: string;
   type: string;
   description?: string;
-  labels: { label: string; value: string }[];
+  labels: Label[];
   app_ui_link?: string;
   metrics_ui_link?: string;
   queue_event_delay?: string;
@@ -22,6 +25,35 @@ interface ConnectionInfoDialogProps {
 }
 
 export const ConnectionInfoDialog = ({ connection, open, onOpenChange }: ConnectionInfoDialogProps) => {
+  const [evaluatedLabels, setEvaluatedLabels] = useState<Label[]>([]);
+  const [evaluatedStatus, setEvaluatedStatus] = useState<string>('unknown');
+
+  useEffect(() => {
+    const evaluateConnectionInfo = async () => {
+      if (connection) {
+        // Evaluate labels
+        if (connection.labels) {
+          const evaluated = await LabelEvaluator.evaluateLabels(connection.labels);
+          setEvaluatedLabels(evaluated);
+        }
+
+        // Evaluate status if it exists
+        if (connection.status && typeof connection.status === 'string') {
+          const evaluatedStatus = await LabelEvaluator.evaluate(connection.status);
+          setEvaluatedStatus(evaluatedStatus);
+        } else {
+          setEvaluatedStatus('unknown');
+        }
+      }
+    };
+
+    if (open && connection) {
+      evaluateConnectionInfo();
+      const interval = setInterval(evaluateConnectionInfo, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [connection, open]);
+
   if (!connection) return null;
 
   const getIcon = () => {
@@ -90,6 +122,7 @@ export const ConnectionInfoDialog = ({ connection, open, onOpenChange }: Connect
       case 'warning':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'error':
+      case 'unhealthy':
         return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -140,18 +173,18 @@ export const ConnectionInfoDialog = ({ connection, open, onOpenChange }: Connect
           {connection.status && (
             <div>
               <h3 className="font-roboto font-medium text-gray-700 mb-2">Status</h3>
-              <Badge className={`${getStatusColor(connection.status)} border`}>
-                {connection.status}
+              <Badge className={`${getStatusColor(evaluatedStatus)} border`}>
+                {evaluatedStatus}
               </Badge>
             </div>
           )}
 
           {/* Labels Section */}
-          {connection.labels && connection.labels.length > 0 && (
+          {evaluatedLabels.length > 0 && (
             <div>
               <h3 className="font-roboto font-medium text-gray-700 mb-2">Properties</h3>
               <div className="space-y-2">
-                {connection.labels.map((label, index) => (
+                {evaluatedLabels.map((label, index) => (
                   <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                     <span className="font-roboto text-sm text-gray-600 font-medium">
                       {label.label.toLowerCase()}:

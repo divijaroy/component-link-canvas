@@ -12,7 +12,7 @@
           "components": [
             ""
           ],
-          "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+          "app_ui_link": "https://console.cloud.google.com/dataproc/clusters/fkp-fdp-moon-deb11-m3optimization-202501201229/monitoring?region=asia-south1&inv=1&invt=Ab0v7g&project=fkp-fdphadoop-krios",
           "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
           "labels": [
             {
@@ -52,8 +52,8 @@
           ]
         }
       ],
-      "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
-      "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
+      "app_ui_link": "https://console.cloud.google.com/dataproc/clusters/fkp-fdp-moon-deb11-m3optimization-202501201229/monitoring?region=asia-south1&inv=1&invt=Ab0v7g&project=fkp-fdphadoop-krios",
+      "metrics_ui_link": "https://cosmos.fkcloud.in/d/Vae4LUK4k/bcap-3-0?orgId=1#:~:text=Archived%20dashboard-,Raw%20Jobs",
       "labels": [
         {
           "label": "Type",

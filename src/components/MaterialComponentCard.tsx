@@ -107,8 +107,8 @@ export const MaterialComponentCard = ({ node, onClick, isParent = false }: Mater
             </span>
           </div>
           <div className={cn("px-1.5 py-0.5", isParent ? "bg-slate-100 text-slate-700" : "bg-gray-100 text-gray-700")}>
-            <span className="text-xs font-normal max-w-[80px] truncate" title={String(label.value || 'Loading...').toLowerCase()}>
-              {String(label.value || 'Loading...').toLowerCase()}
+            <span className="text-xs font-normal max-w-[80px] truncate" title={String(label.value !== null && label.value !== undefined ? label.value : 'Loading...').toLowerCase()}>
+              {String(label.value !== null && label.value !== undefined ? label.value : 'Loading...').toLowerCase()}
             </span>
           </div>
         </div>

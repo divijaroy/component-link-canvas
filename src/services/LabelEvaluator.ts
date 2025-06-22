@@ -1,58 +1,85 @@
 import { Label } from '../types/ComponentTypes';
 
 export class LabelEvaluator {
-  /**
-   * Evaluate a label value
-   */
-  static async evaluateLabel(label: Label): Promise<string> {
-    const { value } = label;
-    
-    // If the value starts with $eval, it's a dynamic evaluation
-    if (value.startsWith('$eval(') && value.endsWith(')')) {
-      const url = value.slice(6, -1); // Remove $eval( and )
-      return await this.fetchMetricValue(url);
+  private static cache = new Map<string, { value: any; timestamp: number }>();
+  private static CACHE_TTL = 4000; // Cache TTL in milliseconds
+
+  private static simpleJsonPath(obj: any, path: string): any {
+    if (!path || path === '.') return obj;
+  
+    // This regex splits the path into parts, handling both dot and bracket notation.
+    const parts = path.match(/[^.[\]]+/g) || [];
+  
+    let current = obj;
+    for (const part of parts) {
+      if (current === null || current === undefined) {
+        return undefined;
+      }
+      // Check if the part is a number (array index) or a string (object key)
+      const key = !isNaN(parseInt(part, 10)) ? parseInt(part, 10) : part;
+      
+      if (typeof current !== 'object' || !(key in current)) {
+        return undefined;
+      }
+      current = current[key];
     }
-    
-    // Otherwise, return the static value
-    return value;
+    return current;
   }
 
-  /**
-   * Fetch metric value from URL
-   */
-  private static async fetchMetricValue(url: string): Promise<string> {
+  static async evaluate(value: string): Promise<any> {
+    const evalRegex = /^\$eval\(([^,]+)(?:,\s*([^)]+))?\)$/;
+    const match = value.match(evalRegex);
+
+    if (!match) {
+      return value;
+    }
+
+    const url = match[1].trim();
+    const jsonPath = match[2] ? match[2].trim() : '.';
+    const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+    const cacheKey = `${url}|${jsonPath}`;
+
+    const cached = this.cache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < this.CACHE_TTL)) {
+      return cached.value;
+    }
+
     try {
-      // Simulate API call - in real implementation, this would make an actual HTTP request
-      console.log(`Fetching metric from: ${url}`);
-      
-      // Simulate different response times and values
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 1000));
-      
-      // Return mock values based on the URL
-      if (url.includes('lag')) {
-        return `${Math.floor(Math.random() * 100)}ms`;
-      } else if (url.includes('last-run')) {
-        return new Date(Date.now() - Math.random() * 86400000).toISOString();
-      } else {
-        return `${Math.floor(Math.random() * 1000)}`;
+      const response = await fetch(proxyUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+      }
+      
+      const result = this.simpleJsonPath(data, jsonPath);
+
+      if (result === undefined) {
+        return 'not found';
+      }
+
+      const finalValue = (typeof result === 'object') ? JSON.stringify(result) : result;
+
+      this.cache.set(cacheKey, { value: finalValue, timestamp: Date.now() });
+      return finalValue;
     } catch (error) {
-      console.error('Error fetching metric:', error);
+      console.error(`Error evaluating ${value}:`, error);
       return 'Error';
     }
   }
 
-  /**
-   * Evaluate multiple labels
-   */
-  static async evaluateLabels(labels: Label[]): Promise<Label[]> {
-    const evaluatedLabels = await Promise.all(
+  static async evaluateLabels(labels: { label: string; value: string }[]): Promise<{ label: string; value: any }[]> {
+    return Promise.all(
       labels.map(async (label) => ({
         ...label,
-        value: await this.evaluateLabel(label)
+        value: await this.evaluate(label.value),
       }))
     );
-    
-    return evaluatedLabels;
   }
 }

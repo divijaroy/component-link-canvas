@@ -9,7 +9,7 @@
       "metrics_ui_link": "http://link.to/gateway-metrics",
       "labels": [
         { "label": "type", "value": "kong" },
-        { "label": "requests", "value": "$eval(http://get-metric-value)" }
+        { "label": "requests", "value": "$eval(https://jsonplaceholder.typicode.com/todos/1, .completed)" }
       ],
       "connections": ["user-service", "order-service", "product-service"]
     },

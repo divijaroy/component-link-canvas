@@ -19,13 +19,61 @@
         { "label": "type", "value": "kong" },
         { "label": "requests", "value": "$eval(https://jsonplaceholder.typicode.com/todos/1, .completed)" }
       ],
-      "connections": ["user-service", "order-service", "product-service"]
+      "connections": [
+        {
+          "id": "api-to-user-service",
+          "target": "user-service",
+          "name": "API to User Service",
+          "type": "http-api",
+          "description": "REST API connection from API Gateway to User Service",
+          "labels": [
+            { "label": "protocol", "value": "http" },
+            { "label": "method", "value": "post" },
+            { "label": "timeout", "value": "5s" }
+          ],
+          "app_ui_link": "http://api-monitor.example.com/api-to-user",
+          "metrics_ui_link": "http://metrics.example.com/api-to-user",
+          "status": "healthy",
+          "latency": "45ms"
+        },
+        {
+          "id": "api-to-order-service",
+          "target": "order-service",
+          "name": "API to Order Service",
+          "type": "http-api",
+          "description": "REST API connection from API Gateway to Order Service",
+          "labels": [
+            { "label": "protocol", "value": "http" },
+            { "label": "method", "value": "post" },
+            { "label": "timeout", "value": "10s" }
+          ],
+          "app_ui_link": "http://api-monitor.example.com/api-to-order",
+          "metrics_ui_link": "http://metrics.example.com/api-to-order",
+          "status": "healthy",
+          "latency": "120ms"
+        },
+        {
+          "id": "api-to-product-service",
+          "target": "product-service",
+          "name": "API to Product Service",
+          "type": "http-api",
+          "description": "REST API connection from API Gateway to Product Service",
+          "labels": [
+            { "label": "protocol", "value": "http" },
+            { "label": "method", "value": "get" },
+            { "label": "timeout", "value": "3s" }
+          ],
+          "app_ui_link": "http://api-monitor.example.com/api-to-product",
+          "metrics_ui_link": "http://metrics.example.com/api-to-product",
+          "status": "healthy",
+          "latency": "25ms"
+        }
+      ]
     },
     {
       "name": "Core Services",
       "id": "core-services",
       "type": "component",
-      
       "labels": [
         { "label": "domain", "value": "core-business" },
         { "label": "language", "value": "java" }
@@ -44,7 +92,40 @@
             { "label": "type", "value": "drop-wizard" },
             { "label": "version", "value": "1.2.3" }
           ],
-          "connections": ["user-db", "redis-cache"]
+          "connections": [
+            {
+              "id": "user-service-to-db",
+              "target": "user-db",
+              "name": "User Service to Database",
+              "type": "database",
+              "description": "Database connection from User Service to PostgreSQL",
+              "labels": [
+                { "label": "type", "value": "postgres" },
+                { "label": "version", "value": "15.3" },
+                { "label": "pool_size", "value": "20" }
+              ],
+              "app_ui_link": "http://pgadmin.example.com/user-db",
+              "metrics_ui_link": "http://postgres-metrics.example.com/user-db",
+              "status": "healthy",
+              "latency": "45ms"
+            },
+            {
+              "id": "user-service-to-cache",
+              "target": "redis-cache",
+              "name": "User Service to Cache",
+              "type": "cache",
+              "description": "Cache connection from User Service to Redis",
+              "labels": [
+                { "label": "type", "value": "redis" },
+                { "label": "version", "value": "7.2" },
+                { "label": "memory", "value": "8GB" }
+              ],
+              "app_ui_link": "http://redis-ui.example.com/user-cache",
+              "metrics_ui_link": "http://redis-metrics.example.com/user-cache",
+              "status": "healthy",
+              "latency": "2ms"
+            }
+          ]
         },
         {
           "name": "Order Service",
@@ -57,7 +138,40 @@
             { "label": "type", "value": "rest" },
             { "label": "version", "value": "2.1.0" }
           ],
-          "connections": ["order-db", "message-queue"]
+          "connections": [
+            {
+              "id": "order-service-to-db",
+              "target": "order-db",
+              "name": "Order Service to Database",
+              "type": "database",
+              "description": "Database connection from Order Service to PostgreSQL",
+              "labels": [
+                { "label": "type", "value": "postgres" },
+                { "label": "version", "value": "15.3" },
+                { "label": "pool_size", "value": "15" }
+              ],
+              "app_ui_link": "http://pgadmin.example.com/order-db",
+              "metrics_ui_link": "http://postgres-metrics.example.com/order-db",
+              "status": "healthy",
+              "latency": "60ms"
+            },
+            {
+              "id": "order-service-to-queue",
+              "target": "message-queue",
+              "name": "Order Service to Message Queue",
+              "type": "message-queue",
+              "description": "Message queue connection from Order Service to Kafka",
+              "labels": [
+                { "label": "type", "value": "kafka" },
+                { "label": "version", "value": "3.5.0" },
+                { "label": "topic", "value": "orders" }
+              ],
+              "app_ui_link": "http://kafka-ui.example.com/orders-topic",
+              "metrics_ui_link": "http://kafka-metrics.example.com/orders-topic",
+              "status": "healthy",
+              "latency": "15ms"
+            }
+          ]
         },
         {
           "name": "Product Service",
@@ -70,7 +184,24 @@
             { "label": "type", "value": "drop-wizard" },
             { "label": "version", "value": "3.0.0" }
           ],
-          "connections": ["product-db"]
+          "connections": [
+            {
+              "id": "product-service-to-db",
+              "target": "product-db",
+              "name": "Product Service to Database",
+              "type": "database",
+              "description": "Database connection from Product Service to MongoDB",
+              "labels": [
+                { "label": "type", "value": "mongodb" },
+                { "label": "version", "value": "6.0" },
+                { "label": "collections", "value": "products" }
+              ],
+              "app_ui_link": "http://mongo-ui.example.com/product-db",
+              "metrics_ui_link": "http://mongo-metrics.example.com/product-db",
+              "status": "healthy",
+              "latency": "35ms"
+            }
+          ]
         }
       ],
       "connections": []
@@ -136,7 +267,40 @@
                 "type": "component",
                 "components": [],
                 "labels": [{ "label": "type", "value": "rabbitmq" }],
-                "connections": ["payment-processor", "notification-stream-job"]
+                "connections": [
+                    {
+                        "id": "queue-to-payment",
+                        "target": "payment-processor",
+                        "name": "Queue to Payment Processor",
+                        "type": "message-queue",
+                        "description": "Message queue connection to Payment Processor",
+                        "labels": [
+                            { "label": "type", "value": "kafka" },
+                            { "label": "topic", "value": "payments" },
+                            { "label": "partitions", "value": "8" }
+                        ],
+                        "app_ui_link": "http://kafka-ui.example.com/payments-topic",
+                        "metrics_ui_link": "http://kafka-metrics.example.com/payments-topic",
+                        "status": "healthy",
+                        "latency": "10ms"
+                    },
+                    {
+                        "id": "queue-to-analytics",
+                        "target": "notification-stream-job",
+                        "name": "Queue to Analytics Stream",
+                        "type": "message-queue",
+                        "description": "Message queue connection to Analytics Stream Processor",
+                        "labels": [
+                            { "label": "type", "value": "kafka" },
+                            { "label": "topic", "value": "analytics" },
+                            { "label": "partitions", "value": "12" }
+                        ],
+                        "app_ui_link": "http://kafka-ui.example.com/analytics-topic",
+                        "metrics_ui_link": "http://kafka-metrics.example.com/analytics-topic",
+                        "status": "healthy",
+                        "latency": "8ms"
+                    }
+                ]
             },
             {
                 "name": "Analytics Stream Processor",
@@ -147,7 +311,24 @@
                     { "label": "type", "value": "spark-streaming" },
                     { "label": "lag", "value": "$eval(http://get-metric-value)" }
                 ],
-                "connections": ["analytics-db"]
+                "connections": [
+                    {
+                        "id": "analytics-to-db",
+                        "target": "analytics-db",
+                        "name": "Analytics to Database",
+                        "type": "database",
+                        "description": "Database connection from Analytics Stream to Data Warehouse",
+                        "labels": [
+                            { "label": "type", "value": "postgres" },
+                            { "label": "version", "value": "15.3" },
+                            { "label": "schema", "value": "analytics" }
+                        ],
+                        "app_ui_link": "http://pgadmin.example.com/analytics-db",
+                        "metrics_ui_link": "http://postgres-metrics.example.com/analytics-db",
+                        "status": "healthy",
+                        "latency": "120ms"
+                    }
+                ]
             }
         ],
         "connections": []

@@ -4,6 +4,7 @@ import { MaterialComponentCard } from './MaterialComponentCard';
 import { MovingConnectionLine } from './MovingConnectionLine';
 import { generateLayout, clearLayoutCache } from '../services/ConnectivityLayoutService';
 import { ComponentInfoDialog } from './ComponentInfoDialog';
+import { ConnectionInfoDialog } from './ConnectionInfoDialog';
 import { SystemHeader } from './SystemHeader';
 import { RefreshCw } from 'lucide-react';
 
@@ -22,12 +23,39 @@ const processSystemData = (systemData: SystemData): { components: Component[], c
       allComponents.push(componentWithParent);
 
       if (comp.connections) {
-        comp.connections.forEach(targetId => {
+        comp.connections.forEach(connection => {
+          // Handle both old format (string) and new format (ConnectionObject)
+          let targetId: string;
+          let connectionComponentId: string | null = null;
+
+          if (typeof connection === 'string') {
+            // Old format: just a string target
+            targetId = connection;
+            // Try to find a matching connection component based on the target
+            if (systemData.connections) {
+              if (targetId.toLowerCase().includes('db')) {
+                const postgresConn = systemData.connections.find(c => c.type === 'database');
+                connectionComponentId = postgresConn?.id;
+              } else if (targetId.toLowerCase().includes('cache')) {
+                const redisConn = systemData.connections.find(c => c.type === 'cache');
+                connectionComponentId = redisConn?.id;
+              } else if (targetId.toLowerCase().includes('queue')) {
+                const kafkaConn = systemData.connections.find(c => c.type === 'message-queue');
+                connectionComponentId = kafkaConn?.id;
+              }
+            }
+          } else {
+            // New format: ConnectionObject with full details
+            targetId = connection.target;
+            connectionComponentId = connection.id; // Use the connection's own ID
+          }
+
           allConnections.push({
             id: `e${connId++}`,
             source: comp.id,
             target: targetId,
-            label: `conn`
+            label: `conn`,
+            connectionComponentId: connectionComponentId
           });
         });
       }
@@ -45,12 +73,18 @@ const processSystemData = (systemData: SystemData): { components: Component[], c
 export const EnhancedSystemDashboard: React.FC = () => {
   const [layout, setLayout] = useState<Layout>({ nodes: [], edges: [], width: 0, height: 0 });
   const [infoComponent, setInfoComponent] = useState<any | null>(null);
+  const [connectionInfo, setConnectionInfo] = useState<any | null>(null);
   const [systemInfo, setSystemInfo] = useState<any>(null);
+  const [connectionComponents, setConnectionComponents] = useState<any[]>([]);
+  const [systemData, setSystemData] = useState<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const performLayout = async () => {
+      // Clear layout cache to ensure we get fresh layout with connectionComponentId
+      clearLayoutCache();
+      
       // Determine which data file to load via environment variable
       const dataFile = import.meta.env.VITE_DATA_FILE || 'data.json';
       
@@ -58,14 +92,33 @@ export const EnhancedSystemDashboard: React.FC = () => {
       const response = await fetch(`/${dataFile}`);
       const systemData = await response.json();
 
+      // Store the original data for connection lookup
+      setSystemData(systemData);
+
       // Extract system info if available
       if (systemData.system) {
         setSystemInfo(systemData.system);
       }
 
+      // Extract connection components if available
+      if (systemData.connections) {
+        setConnectionComponents(systemData.connections);
+        console.log('Loaded connection components:', systemData.connections);
+      }
+
       const { components, connections } = processSystemData(systemData);
       console.log('Extracted components:', components.map(c => ({ id: c.id, name: c.name, parentId: c.parentId })));
       console.log('Extracted connections:', connections);
+      console.log('Connection details:', connections.map(c => ({ 
+        id: c.id, 
+        source: c.source, 
+        target: c.target, 
+        connectionComponentId: c.connectionComponentId 
+      })));
+      
+      // Test: Check if we have any connections with connectionComponentId
+      const connectionsWithIds = connections.filter(c => c.connectionComponentId);
+      console.log('Connections with connectionComponentId:', connectionsWithIds);
       
       const laidOut = await generateLayout(components, connections, true);
       console.log('Layout result:', laidOut);
@@ -95,6 +148,36 @@ export const EnhancedSystemDashboard: React.FC = () => {
     setInfoComponent(component || null);
   };
 
+  const handleConnectionClick = (connectionId: string) => {
+    // Find the edge to get its connectionComponentId
+    const edge = layout.edges.find(e => e.id === connectionId);
+    if (!edge || !edge.connectionComponentId) return;
+    
+    // Find the connection object by ID in all components
+    let connectionObject = null;
+    const findConnection = (components: Component[]) => {
+      for (const comp of components) {
+        if (comp.connections) {
+          for (const conn of comp.connections) {
+            if (typeof conn !== 'string' && conn.id === edge.connectionComponentId) {
+              connectionObject = conn;
+              return;
+            }
+          }
+        }
+        if (comp.components && comp.components.length > 0) {
+          findConnection(comp.components as Component[]);
+        }
+      }
+    };
+    
+    findConnection(systemData?.components || []);
+    
+    if (connectionObject) {
+      setConnectionInfo(connectionObject);
+    }
+  };
+
   const handleRefreshLayout = async () => {
     clearLayoutCache();
     // Determine which data file to load via environment variable
@@ -104,9 +187,17 @@ export const EnhancedSystemDashboard: React.FC = () => {
     const response = await fetch(`/${dataFile}`);
     const systemData = await response.json();
 
+    // Store the original data for connection lookup
+    setSystemData(systemData);
+
     // Extract system info if available
     if (systemData.system) {
       setSystemInfo(systemData.system);
+    }
+
+    // Extract connection components if available
+    if (systemData.connections) {
+      setConnectionComponents(systemData.connections);
     }
 
     const { components, connections } = processSystemData(systemData);
@@ -116,6 +207,54 @@ export const EnhancedSystemDashboard: React.FC = () => {
 
   const canvasWidth = (layout.width ?? 0) + 200;
   const canvasHeight = (layout.height ?? 0) + 200;
+
+  // Helper to get connection label for a given edge
+  const getConnectionLabel = (edgeId: string) => {
+    // Only for data-complex.json
+    const dataFile = import.meta.env.VITE_DATA_FILE || 'data.json';
+    console.log('getConnectionLabel called for edgeId:', edgeId, 'dataFile:', dataFile);
+    if (!dataFile.includes('complex')) {
+      console.log('Not complex data file, returning null');
+      return null;
+    }
+    
+    // Find the edge to get its connectionComponentId
+    const edge = layout.edges.find(e => e.id === edgeId);
+    console.log('Found edge:', edge);
+    if (!edge || !edge.connectionComponentId) {
+      console.log('No edge or connectionComponentId found');
+      return null;
+    }
+    
+    // Find the connection object by ID in all components
+    let connectionObject = null;
+    const findConnection = (components: Component[]) => {
+      for (const comp of components) {
+        if (comp.connections) {
+          for (const conn of comp.connections) {
+            if (typeof conn !== 'string' && conn.id === edge.connectionComponentId) {
+              connectionObject = conn;
+              console.log('Found connection object:', connectionObject);
+              return;
+            }
+          }
+        }
+        if (comp.components && comp.components.length > 0) {
+          findConnection(comp.components as Component[]);
+        }
+      }
+    };
+    
+    findConnection(systemData?.components || []);
+    
+    if (connectionObject) {
+      console.log('Returning connection name:', connectionObject.name);
+      return connectionObject.name;
+    }
+    
+    console.log('No connection object found, returning null');
+    return null;
+  };
 
   return (
     <div ref={containerRef} className="w-full h-screen bg-gradient-to-br from-slate-50 to-slate-200 overflow-auto">
@@ -129,7 +268,7 @@ export const EnhancedSystemDashboard: React.FC = () => {
       {/* Component Canvas */}
       <div className="relative" style={{ width: canvasWidth, height: canvasHeight }}>
         <div className="absolute inset-0" style={{ transform: `translate(${viewOffset.x}px, ${viewOffset.y}px)` }}>
-          <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, pointerEvents: 'none' }}>
+          <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, pointerEvents: 'auto' }}>
             {layout.edges.map(edge => {
               // Create path from edge sections or fallback to simple line
               let path = [];
@@ -147,14 +286,43 @@ export const EnhancedSystemDashboard: React.FC = () => {
                   ];
                 }
               }
-              
-              return path.length > 0 ? (
-                <MovingConnectionLine
-                  key={edge.id}
-                  id={edge.id}
-                  path={path}
-                />
-              ) : null;
+              if (path.length < 2) return null;
+
+              // Calculate midpoint for label
+              const midIdx = Math.floor(path.length / 2);
+              const p1 = path[midIdx - 1];
+              const p2 = path[midIdx];
+              const mx = (p1.x + p2.x) / 2;
+              const my = (p1.y + p2.y) / 2;
+              const label = getConnectionLabel(edge.id);
+              console.log('Label for edge', edge.id, ':', label);
+
+              return (
+                <g key={edge.id}>
+                  <MovingConnectionLine
+                    id={edge.id}
+                    path={path}
+                    onClick={() => handleConnectionClick(edge.id)}
+                  />
+                  {label && (
+                    <foreignObject
+                      x={mx - 30}
+                      y={my - 16}
+                      width={60}
+                      height={32}
+                      style={{ overflow: 'visible', cursor: 'pointer', zIndex: 10 }}
+                      onClick={() => handleConnectionClick(edge.id)}
+                    >
+                      <div
+                        className="flex items-center justify-center text-xs font-medium text-gray-700 select-none"
+                        style={{ pointerEvents: 'auto', textAlign: 'center' }}
+                      >
+                        {label}
+                      </div>
+                    </foreignObject>
+                  )}
+                </g>
+              );
             })}
           </svg>
           {layout.nodes.map(node => (
@@ -194,6 +362,7 @@ export const EnhancedSystemDashboard: React.FC = () => {
         </div>
       </div>
       {infoComponent && <ComponentInfoDialog node={infoComponent} open={!!infoComponent} onOpenChange={(isOpen) => !isOpen && setInfoComponent(null)} />}
+      {connectionInfo && <ConnectionInfoDialog connection={connectionInfo} open={!!connectionInfo} onOpenChange={(isOpen) => !isOpen && setConnectionInfo(null)} />}
     </div>
   );
 }; 

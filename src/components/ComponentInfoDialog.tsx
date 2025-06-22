@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Database, Server, AppWindow, Zap, Clock, Globe, MessageSquare, Warehouse } from 'lucide-react';
+import { ExternalLink, Database, Server, AppWindow, Zap, Clock, Globe, MessageSquare, Warehouse, BarChart3 } from 'lucide-react';
 
 interface ComponentInfoDialogProps {
   node: any | null;
@@ -76,17 +76,33 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
     window.open(url, '_blank');
   };
 
+  const getStatusBadgeClass = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'healthy':
+        return 'bg-green-100 text-green-800';
+      case 'warning':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'error':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-blue-100 text-blue-700';
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent 
+        className="max-w-md"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             {getIcon()}
             <div>
-              <div className="font-roboto font-semibold text-gray-800">
+              <div className="font-roboto font-semibold text-blue-700">
                 {node.name}
               </div>
-              <div className="text-sm text-gray-500 font-normal">
+              <div className="text-sm text-blue-500 font-normal">
                 {node.isParent ? 'Component Group' : 'Component'}
               </div>
             </div>
@@ -99,22 +115,29 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
             <div>
               <h3 className="font-roboto font-medium text-gray-700 mb-2">Labels</h3>
               <div className="space-y-2">
-                {node.labels.map((label: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="font-roboto text-sm text-gray-600 font-medium">
-                      {label.label.toLowerCase()}:
-                    </span>
-                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
-                      {String(label.value || 'Loading...').toLowerCase()}
-                    </Badge>
-                  </div>
-                ))}
+                {node.labels.map((label: any, index: number) => {
+                  const isStatusLabel = label.label.toLowerCase() === 'status' || label.label.toLowerCase() === 'health';
+                  const badgeClass = isStatusLabel 
+                    ? getStatusBadgeClass(String(label.value))
+                    : 'bg-blue-100 text-blue-700';
+
+                  return (
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <span className="font-roboto text-sm text-gray-600 font-medium">
+                        {label.label.toLowerCase()}:
+                      </span>
+                      <Badge variant="secondary" className={`text-xs ${badgeClass}`}>
+                        {String(label.value || 'Loading...').toLowerCase()}
+                      </Badge>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {/* Links Section */}
-          {(node.app_ui_link) && (
+          {(node.app_ui_link || node.metrics_ui_link) && (
             <div>
               <h3 className="font-roboto font-medium text-gray-700 mb-2">Quick Links</h3>
               <div className="space-y-2">
@@ -127,6 +150,17 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Open App UI
+                  </Button>
+                )}
+                {node.metrics_ui_link && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleLinkClick(node.metrics_ui_link!)}
+                    className="w-full justify-start"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Open Metrics UI
                   </Button>
                 )}
               </div>

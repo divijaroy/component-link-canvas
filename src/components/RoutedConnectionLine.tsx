@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Position, ConnectionLine } from '../types/ComponentTypes';
-import { ConnectionRoutingService, ConnectionRoute } from '../services/ConnectionRoutingService';
+import { ConnectionRoutingService } from '../services/ConnectionRoutingService';
 
 interface RoutedConnectionLineProps {
   source: Position;
@@ -21,25 +21,31 @@ export const RoutedConnectionLine: React.FC<RoutedConnectionLineProps> = ({
   routingService,
   isAnimated = false
 }) => {
-  const [route, setRoute] = useState<ConnectionRoute | null>(null);
+  const [route, setRoute] = useState<Position[] | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     console.log(`RoutedConnectionLine ${id}: Calculating route from ${source.x},${source.y} to ${target.x},${target.y}`);
     
-    // Calculate route using routing service
-    const calculatedRoute = routingService.calculateRoute(source, target);
+    // For now, create a simple direct path since the routing service expects ComponentNode objects
+    // TODO: Update this to use proper routing when ComponentNode data is available
+    const directPath: Position[] = [source, target];
     
-    console.log(`RoutedConnectionLine ${id}: Calculated route:`, calculatedRoute);
-    setRoute(calculatedRoute);
+    console.log(`RoutedConnectionLine ${id}: Calculated route:`, directPath);
+    setRoute(directPath);
   }, [source, target, routingService, id]);
 
-  if (!route) {
+  if (!route || route.length < 2) {
     return null;
   }
 
   const strokeWidth = isHovered ? 3 : 2;
   const strokeColor = isHovered ? '#1d4ed8' : '#3b82f6';
+
+  // Create SVG path from route points
+  const pathData = route.map((point, index) => 
+    `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
+  ).join(' ');
 
   return (
     <g
@@ -50,7 +56,7 @@ export const RoutedConnectionLine: React.FC<RoutedConnectionLineProps> = ({
     >
       {/* Main connection path with animated dashes */}
       <path
-        d={route.path}
+        d={pathData}
         fill="none"
         stroke={strokeColor}
         strokeWidth={strokeWidth}
@@ -84,7 +90,7 @@ export const RoutedConnectionLine: React.FC<RoutedConnectionLineProps> = ({
       
       {/* Arrow path that follows the route */}
       <path
-        d={route.path}
+        d={pathData}
         fill="none"
         stroke={strokeColor}
         strokeWidth={strokeWidth}

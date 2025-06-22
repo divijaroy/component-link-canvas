@@ -23,7 +23,7 @@
         {
           "id": "api-to-user-service",
           "target": "user-service",
-          "name": "API to User Service",
+          "name": "Kafka",
           "type": "http-api",
           "description": "REST API connection from API Gateway to User Service",
           "labels": [
@@ -39,7 +39,7 @@
         {
           "id": "api-to-order-service",
           "target": "order-service",
-          "name": "API to Order Service",
+          "name": "Viesti",
           "type": "http-api",
           "description": "REST API connection from API Gateway to Order Service",
           "labels": [
@@ -55,7 +55,7 @@
         {
           "id": "api-to-product-service",
           "target": "product-service",
-          "name": "API to Product Service",
+          "name": "Varadhi",
           "type": "http-api",
           "description": "REST API connection from API Gateway to Product Service",
           "labels": [
@@ -96,7 +96,7 @@
             {
               "id": "user-service-to-db",
               "target": "user-db",
-              "name": "User Service to Database",
+              "name": "Kafka",
               "type": "database",
               "description": "Database connection from User Service to PostgreSQL",
               "labels": [
@@ -112,7 +112,7 @@
             {
               "id": "user-service-to-cache",
               "target": "redis-cache",
-              "name": "User Service to Cache",
+              "name": "Viesti",
               "type": "cache",
               "description": "Cache connection from User Service to Redis",
               "labels": [
@@ -142,7 +142,7 @@
             {
               "id": "order-service-to-db",
               "target": "order-db",
-              "name": "Order Service to Database",
+              "name": "Varadhi",
               "type": "database",
               "description": "Database connection from Order Service to PostgreSQL",
               "labels": [
@@ -158,7 +158,7 @@
             {
               "id": "order-service-to-queue",
               "target": "message-queue",
-              "name": "Order Service to Message Queue",
+              "name": "Kafka",
               "type": "message-queue",
               "description": "Message queue connection from Order Service to Kafka",
               "labels": [
@@ -188,7 +188,7 @@
             {
               "id": "product-service-to-db",
               "target": "product-db",
-              "name": "Product Service to Database",
+              "name": "Viesti",
               "type": "database",
               "description": "Database connection from Product Service to MongoDB",
               "labels": [
@@ -271,7 +271,7 @@
                     {
                         "id": "queue-to-payment",
                         "target": "payment-processor",
-                        "name": "Queue to Payment Processor",
+                        "name": "Kafka",
                         "type": "message-queue",
                         "description": "Message queue connection to Payment Processor",
                         "labels": [
@@ -287,7 +287,7 @@
                     {
                         "id": "queue-to-analytics",
                         "target": "notification-stream-job",
-                        "name": "Queue to Analytics Stream",
+                        "name": "Varadhi",
                         "type": "message-queue",
                         "description": "Message queue connection to Analytics Stream Processor",
                         "labels": [
@@ -315,7 +315,7 @@
                     {
                         "id": "analytics-to-db",
                         "target": "analytics-db",
-                        "name": "Analytics to Database",
+                        "name": "Viesti",
                         "type": "database",
                         "description": "Database connection from Analytics Stream to Data Warehouse",
                         "labels": [

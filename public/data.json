@@ -162,5 +162,31 @@
       ],
       "connections": []
     }
+  ],
+  "connections": [
+    {
+      "start": "dci",
+      "end": "bdm",
+      "label": "Kafka",
+      "type": "stream"
+    },
+    {
+      "start": "dcc", 
+      "end": "bdm",
+      "label": "Ciesti",
+      "type": "stream"
+    },
+    {
+      "start": "corrected",
+      "end": "bdm", 
+      "label": "Varadhi",
+      "type": "stream"
+    },
+    {
+      "start": "indexer",
+      "end": "bdm",
+      "label": "Kafka",
+      "type": "stream"
+    }
   ]
 } 

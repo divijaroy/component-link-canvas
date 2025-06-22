@@ -98,15 +98,18 @@ export const ConnectionInfoDialog = ({ connection, open, onOpenChange }: Connect
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent 
+        className="max-w-md"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             {getIcon()}
             <div>
-              <div className="font-roboto font-semibold text-gray-800">
+              <div className="font-roboto font-semibold text-blue-700">
                 {connection.name}
               </div>
-              <div className="text-sm text-gray-500 font-normal">
+              <div className="text-sm text-blue-500 font-normal">
                 Connection Component
               </div>
             </div>

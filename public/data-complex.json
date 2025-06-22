@@ -1,4 +1,12 @@
 {
+  "system": {
+    "name": "E-Commerce Platform",
+    "description": "Complete e-commerce system with microservices architecture",
+    "overall_lag": "$eval(https://jsonplaceholder.typicode.com/todos/1, .id)",
+    "total_components": 12,
+    "status": "healthy",
+    "last_updated": "$eval(https://jsonplaceholder.typicode.com/todos/1, .completed)"
+  },
   "components": [
     {
       "name": "API Gateway",
@@ -17,6 +25,7 @@
       "name": "Core Services",
       "id": "core-services",
       "type": "component",
+      
       "labels": [
         { "label": "domain", "value": "core-business" },
         { "label": "language", "value": "java" }
@@ -29,6 +38,8 @@
           "id": "user-service",
           "type": "component",
           "components": [],
+          "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+          "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
           "labels": [
             { "label": "type", "value": "drop-wizard" },
             { "label": "version", "value": "1.2.3" }
@@ -40,6 +51,8 @@
           "id": "order-service",
           "type": "component",
           "components": [],
+          "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+          "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
           "labels": [
             { "label": "type", "value": "rest" },
             { "label": "version", "value": "2.1.0" }
@@ -51,6 +64,8 @@
           "id": "product-service",
           "type": "component",
           "components": [],
+          "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+          "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
           "labels": [
             { "label": "type", "value": "drop-wizard" },
             { "label": "version", "value": "3.0.0" }
@@ -64,6 +79,8 @@
       "name": "Data Infrastructure",
       "id": "data-infra",
       "type": "component",
+      "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+      "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
       "labels": [
         { "label": "managed_by", "value": "dba-team" }
       ],
@@ -73,6 +90,8 @@
           "id": "user-db",
           "type": "component",
           "components": [],
+          "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+          "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
           "labels": [{ "label": "type", "value": "postgres" }],
           "connections": []
         },
@@ -81,6 +100,8 @@
           "id": "order-db",
           "type": "component",
           "components": [],
+          "app_ui_link": "http://app-ui-link.to-open-in-new-tab",
+          "metrics_ui_link": "http://metrics-ui-link.to-open-in-new-tab",
           "labels": [{ "label": "type", "value": "mysql" }],
           "connections": []
         },

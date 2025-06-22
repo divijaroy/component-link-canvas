@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ComponentNode, Label } from '../types/ComponentTypes';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Database, AppWindow, ExternalLink, Server, Zap, Clock, BarChart3 } from 'lucide-react';
+import { Database, AppWindow, ExternalLink, Server, Zap, Clock, BarChart3, Globe, MessageSquare, Warehouse } from 'lucide-react';
 import { LabelEvaluator } from '../services/LabelEvaluator';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +13,7 @@ interface MaterialComponentCardProps {
 
 export const MaterialComponentCard = ({ node, onClick, isParent = false }: MaterialComponentCardProps) => {
   const [evaluatedLabels, setEvaluatedLabels] = useState<Label[]>(node.labels);
-
+  
   useEffect(() => {
     const evaluateLabels = async () => {
       const evaluated = await LabelEvaluator.evaluateLabels(node.labels);
@@ -23,37 +23,62 @@ export const MaterialComponentCard = ({ node, onClick, isParent = false }: Mater
     const interval = setInterval(evaluateLabels, 5000);
     return () => clearInterval(interval);
   }, [node.labels]);
-
+  
   const getIcon = () => {
     const typeLabel = node.labels.find(l => l.label.toLowerCase() === 'type');
     const typeValue = typeLabel?.value.toLowerCase();
 
     if (typeValue) {
+      // Database types
+      if (typeValue.includes('postgres') || typeValue.includes('mysql') || typeValue.includes('mongodb')) {
+        return <Database className={cn("w-4 h-4 text-purple-600", { "w-5 h-5": isParent })} />;
+      }
+      if (typeValue.includes('cache') || typeValue.includes('redis')) {
+        return <Database className={cn("w-4 h-4 text-red-600", { "w-5 h-5": isParent })} />;
+      }
+      if (typeValue.includes('data-warehouse')) {
+        return <Warehouse className={cn("w-4 h-4 text-indigo-600", { "w-5 h-5": isParent })} />;
+      }
+      
+      // Messaging and streaming
       if (typeValue.includes('spark') || typeValue.includes('stream')) {
-        return <Zap className={cn("w-3.5 h-3.5 text-yellow-600", { "w-4 h-4": isParent })} />;
+        return <Zap className={cn("w-4 h-4 text-yellow-600", { "w-5 h-5": isParent })} />;
+      }
+      if (typeValue.includes('rabbitmq') || typeValue.includes('kafka') || typeValue.includes('queue')) {
+        return <MessageSquare className={cn("w-4 h-4 text-orange-600", { "w-5 h-5": isParent })} />;
+      }
+      
+      // API and gateway types
+      if (typeValue.includes('kong') || typeValue.includes('gateway')) {
+        return <Globe className={cn("w-4 h-4 text-blue-600", { "w-5 h-5": isParent })} />;
+      }
+      if (typeValue.includes('external-api')) {
+        return <ExternalLink className={cn("w-4 h-4 text-green-600", { "w-5 h-5": isParent })} />;
+      }
+      
+      // Service types
+      if (typeValue.includes('drop-wizard') || typeValue.includes('rest')) {
+        return <Server className={cn("w-4 h-4 text-blue-600", { "w-5 h-5": isParent })} />;
       }
       if (typeValue.includes('batch') || typeValue.includes('job') || typeValue.includes('azkaban')) {
-        return <Clock className={cn("w-3.5 h-3.5 text-green-600", { "w-4 h-4": isParent })} />;
-      }
-      if (typeValue.includes('drop-wizard') || typeValue.includes('rest')) {
-        return <Server className={cn("w-3.5 h-3.5 text-blue-600", { "w-4 h-4": isParent })} />;
+        return <Clock className={cn("w-4 h-4 text-green-600", { "w-5 h-5": isParent })} />;
       }
     }
 
     const name = node.name.toLowerCase();
     if (name.includes('spark') || name.includes('stream')) {
-      return <Zap className={cn("w-3.5 h-3.5 text-yellow-600", { "w-4 h-4": isParent })} />;
+      return <Zap className={cn("w-4 h-4 text-yellow-600", { "w-5 h-5": isParent })} />;
     }
     if (name.includes('batch') || name.includes('job')) {
-      return <Clock className={cn("w-3.5 h-3.5 text-green-600", { "w-4 h-4": isParent })} />;
+      return <Clock className={cn("w-4 h-4 text-green-600", { "w-5 h-5": isParent })} />;
     }
     if (name.includes('indexer')) {
-      return <Database className={cn("w-3.5 h-3.5 text-purple-600", { "w-4 h-4": isParent })} />;
+      return <Database className={cn("w-4 h-4 text-purple-600", { "w-5 h-5": isParent })} />;
     }
     if (name.includes('bdm')) {
-      return <Server className={cn("w-3.5 h-3.5 text-blue-600", { "w-4 h-4": isParent })} />;
+      return <Server className={cn("w-4 h-4 text-blue-600", { "w-5 h-5": isParent })} />;
     }
-    return <AppWindow className={cn("w-3.5 h-3.5 text-gray-600", { "w-4 h-4": isParent })} />;
+    return <AppWindow className={cn("w-4 h-4 text-gray-600", { "w-5 h-5": isParent })} />;
   };
 
   const handleLinkClick = (e: React.MouseEvent, url: string) => {
@@ -96,36 +121,36 @@ export const MaterialComponentCard = ({ node, onClick, isParent = false }: Mater
       )}
     </div>
   );
-
+      
   const labelsContent = (
-    <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1">
       {labelsToShow.map((label, index) => (
         <div key={index} className={cn("flex items-center rounded-full overflow-hidden border", isParent ? "border-slate-300" : "border-gray-200")}>
-          <div className="bg-blue-100 text-blue-700 px-1.5 py-0.5">
-            <span className="text-xs font-medium">
+              <div className="bg-blue-100 text-blue-700 px-1.5 py-0.5">
+                <span className="text-xs font-medium">
               {label.label.toLowerCase()}
-            </span>
-          </div>
+                </span>
+              </div>
           <div className={cn("px-1.5 py-0.5", isParent ? "bg-slate-100 text-slate-700" : "bg-gray-100 text-gray-700")}>
             <span className="text-xs font-normal max-w-[80px] truncate" title={String(label.value !== null && label.value !== undefined ? label.value : 'Loading...').toLowerCase()}>
               {String(label.value !== null && label.value !== undefined ? label.value : 'Loading...').toLowerCase()}
-            </span>
-          </div>
-        </div>
-      ))}
+                </span>
+              </div>
+            </div>
+          ))}
       {evaluatedLabels.length > labelLimit && (
         <div className={cn("flex items-center rounded-full overflow-hidden border", isParent ? "border-slate-300" : "border-gray-200")}>
-          <div className="bg-blue-100 text-blue-700 px-1.5 py-0.5">
+              <div className="bg-blue-100 text-blue-700 px-1.5 py-0.5">
             <span className="text-xs font-medium">more</span>
-          </div>
+              </div>
           <div className={cn("px-1.5 py-0.5", isParent ? "bg-slate-100 text-slate-700" : "bg-gray-100 text-gray-700")}>
-            <span className="text-xs">
+                <span className="text-xs">
               +{evaluatedLabels.length - labelLimit}
-            </span>
-          </div>
+                </span>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
   );
 
   if (isParent) {

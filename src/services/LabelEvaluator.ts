@@ -6,7 +6,7 @@ export class LabelEvaluator {
 
   private static simpleJsonPath(obj: any, path: string): any {
     if (!path || path === '.') return obj;
-  
+    
     // This regex splits the path into parts, handling both dot and bracket notation.
     const parts = path.match(/[^.[\]]+/g) || [];
   
@@ -24,15 +24,15 @@ export class LabelEvaluator {
       current = current[key];
     }
     return current;
-  }
-
+    }
+    
   static async evaluate(value: string): Promise<any> {
     const evalRegex = /^\$eval\(([^,]+)(?:,\s*([^)]+))?\)$/;
     const match = value.match(evalRegex);
 
     if (!match) {
-      return value;
-    }
+    return value;
+  }
 
     const url = match[1].trim();
     const jsonPath = match[2] ? match[2].trim() : '.';

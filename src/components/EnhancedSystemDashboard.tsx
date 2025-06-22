@@ -4,6 +4,7 @@ import { MaterialComponentCard } from './MaterialComponentCard';
 import { MovingConnectionLine } from './MovingConnectionLine';
 import { generateLayout, clearLayoutCache } from '../services/ConnectivityLayoutService';
 import { ComponentInfoDialog } from './ComponentInfoDialog';
+import { SystemHeader } from './SystemHeader';
 import { RefreshCw } from 'lucide-react';
 
 // Helper to flatten components and extract connections
@@ -44,6 +45,7 @@ const processSystemData = (systemData: SystemData): { components: Component[], c
 export const EnhancedSystemDashboard: React.FC = () => {
   const [layout, setLayout] = useState<Layout>({ nodes: [], edges: [], width: 0, height: 0 });
   const [infoComponent, setInfoComponent] = useState<any | null>(null);
+  const [systemInfo, setSystemInfo] = useState<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
 
@@ -55,6 +57,11 @@ export const EnhancedSystemDashboard: React.FC = () => {
       // Fetch data from the server
       const response = await fetch(`/${dataFile}`);
       const systemData = await response.json();
+
+      // Extract system info if available
+      if (systemData.system) {
+        setSystemInfo(systemData.system);
+      }
 
       const { components, connections } = processSystemData(systemData);
       console.log('Extracted components:', components.map(c => ({ id: c.id, name: c.name, parentId: c.parentId })));
@@ -97,6 +104,11 @@ export const EnhancedSystemDashboard: React.FC = () => {
     const response = await fetch(`/${dataFile}`);
     const systemData = await response.json();
 
+    // Extract system info if available
+    if (systemData.system) {
+      setSystemInfo(systemData.system);
+    }
+
     const { components, connections } = processSystemData(systemData);
     const laidOut = await generateLayout(components, connections, true);
     setLayout(laidOut);
@@ -106,16 +118,15 @@ export const EnhancedSystemDashboard: React.FC = () => {
   const canvasHeight = (layout.height ?? 0) + 200;
 
   return (
-    <div ref={containerRef} className="relative w-full h-screen bg-gradient-to-br from-slate-50 to-slate-200 overflow-auto">
-      {/* Refresh Button */}
-      <button
-        onClick={handleRefreshLayout}
-        className="absolute top-4 right-4 z-50 p-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200 hover:bg-white hover:shadow-md transition-all duration-200"
-        title="Refresh Layout"
-      >
-        <RefreshCw className="w-5 h-5 text-gray-600" />
-      </button>
+    <div ref={containerRef} className="w-full h-screen bg-gradient-to-br from-slate-50 to-slate-200 overflow-auto">
+      {/* System Header */}
+      {systemInfo && (
+        <div className="z-50 bg-white/80 backdrop-blur-sm border-b border-gray-200">
+          <SystemHeader systemInfo={systemInfo} onRefresh={handleRefreshLayout} />
+        </div>
+      )}
       
+      {/* Component Canvas */}
       <div className="relative" style={{ width: canvasWidth, height: canvasHeight }}>
         <div className="absolute inset-0" style={{ transform: `translate(${viewOffset.x}px, ${viewOffset.y}px)` }}>
           <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, pointerEvents: 'none' }}>

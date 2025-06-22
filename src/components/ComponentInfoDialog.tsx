@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Database, Server, AppWindow, Zap, Clock } from 'lucide-react';
+import { ExternalLink, Database, Server, AppWindow, Zap, Clock, Globe, MessageSquare, Warehouse } from 'lucide-react';
 
 interface ComponentInfoDialogProps {
   node: any | null;
@@ -21,14 +21,39 @@ export const ComponentInfoDialog = ({ node, open, onOpenChange }: ComponentInfoD
     const typeValue = typeLabel?.value.toLowerCase();
 
     if (typeValue) {
+      // Database types
+      if (typeValue.includes('postgres') || typeValue.includes('mysql') || typeValue.includes('mongodb')) {
+        return <Database className="w-6 h-6 text-purple-600" />;
+      }
+      if (typeValue.includes('cache') || typeValue.includes('redis')) {
+        return <Database className="w-6 h-6 text-red-600" />;
+      }
+      if (typeValue.includes('data-warehouse')) {
+        return <Warehouse className="w-6 h-6 text-indigo-600" />;
+      }
+      
+      // Messaging and streaming
       if (typeValue.includes('spark') || typeValue.includes('stream')) {
         return <Zap className="w-6 h-6 text-yellow-600" />;
       }
-      if (typeValue.includes('batch') || typeValue.includes('job') || typeValue.includes('azkaban')) {
-        return <Clock className="w-6 h-6 text-green-600" />;
+      if (typeValue.includes('rabbitmq') || typeValue.includes('kafka') || typeValue.includes('queue')) {
+        return <MessageSquare className="w-6 h-6 text-orange-600" />;
       }
+      
+      // API and gateway types
+      if (typeValue.includes('kong') || typeValue.includes('gateway')) {
+        return <Globe className="w-6 h-6 text-blue-600" />;
+      }
+      if (typeValue.includes('external-api')) {
+        return <ExternalLink className="w-6 h-6 text-green-600" />;
+      }
+      
+      // Service types
       if (typeValue.includes('drop-wizard') || typeValue.includes('rest')) {
         return <Server className="w-6 h-6 text-blue-600" />;
+      }
+      if (typeValue.includes('batch') || typeValue.includes('job') || typeValue.includes('azkaban')) {
+        return <Clock className="w-6 h-6 text-green-600" />;
       }
     }
 
